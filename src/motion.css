@@ -1,0 +1,214 @@
+/* ===================================================================
+   App-shell motion.
+
+   theme.css owns the event animations — level-up, extraction, the rank
+   heat ramp. This file owns the everyday feel: how a tab change reads,
+   how the nav tracks it, how a card arrives, how a press answers.
+
+   Two rules everything here follows.
+
+   1. Only transform and opacity animate. Anything that runs while a
+      finger is on the glass has to stay on the compositor, so nothing
+      here touches width, top, filter or box-shadow per frame.
+   2. Motion has to survive being seen a hundred times a day. Durations
+      sit between 160ms and 320ms; nothing loops; nothing bounces twice.
+      A flourish that delights on first open is an obstacle by Friday.
+   =================================================================== */
+
+/* ---- page transition ----
+   The direction comes from which way you moved along the tab bar, so
+   forward and back feel different and the app keeps a sense of place.
+   Set --dir to 1 or -1 on the page element. */
+
+@keyframes mn-page-in{
+  from{opacity:0;transform:translate3d(calc(var(--dir,1) * 22px),0,0)}
+  to{opacity:1;transform:translate3d(0,0,0)}
+}
+
+.mn-page{
+  animation:mn-page-in .26s cubic-bezier(.22,.92,.3,1) both;
+  will-change:transform,opacity}
+
+/* Cards inside a page arrive just behind it, a beat apart. The delay is
+   capped at eight so a long board never crawls in. */
+.mn-page>*{animation-delay:var(--mn-d,0ms)}
+.mn-page>:nth-child(1){--mn-d:20ms}
+.mn-page>:nth-child(2){--mn-d:58ms}
+.mn-page>:nth-child(3){--mn-d:92ms}
+.mn-page>:nth-child(4){--mn-d:122ms}
+.mn-page>:nth-child(5){--mn-d:148ms}
+.mn-page>:nth-child(6){--mn-d:170ms}
+.mn-page>:nth-child(7){--mn-d:188ms}
+.mn-page>:nth-child(n+8){--mn-d:202ms}
+
+/* ---- tab bar ----
+   A pill tracks the active tab instead of the colour simply cutting
+   across. The spring overshoots once, slightly, and settles. */
+
+.nav{position:relative}
+
+.mn-nav-pill{
+  position:absolute;
+  top:5px;
+  left:0;
+  z-index:0;
+  width:calc(100% / var(--mn-tabs,8));
+  height:calc(100% - var(--sab) - 10px);
+  padding:0 3px;
+  pointer-events:none;
+  transform:translate3d(calc(var(--mn-active,0) * 100%),0,0);
+  transition:transform .34s cubic-bezier(.32,1.28,.42,1)}
+
+.mn-nav-pill::before{
+  content:"";
+  display:block;
+  height:100%;
+  border-radius:9px;
+  background:linear-gradient(180deg,rgba(111,168,255,.20),rgba(111,168,255,.07));
+  border:1px solid rgba(111,168,255,.30)}
+
+/* The lit edge above the active tab. */
+.mn-nav-pill::after{
+  content:"";
+  position:absolute;
+  top:-5px;
+  left:50%;
+  width:26px;
+  height:2px;
+  border-radius:2px;
+  transform:translateX(-50%);
+  background:var(--rune);
+  box-shadow:0 0 10px var(--rune)}
+
+.nav>button{
+  position:relative;
+  z-index:1;
+  transition:color .18s ease,transform .12s ease}
+.nav>button:active{transform:scale(.9)}
+.nav>button svg{transition:transform .2s cubic-bezier(.3,1.3,.5,1)}
+.nav>button[data-on="true"] svg{transform:translateY(-1px) scale(1.1)}
+
+/* ---- press feedback ----
+   Scoped to the things that are actually tappable. A control that does
+   not move under a finger reads as broken on a phone. */
+
+.quest,.gate,.pill,.solid,.ghost,.mn-cal-cell,.kv,.mn-alert{
+  transition:transform .12s cubic-bezier(.3,.9,.4,1),
+             background-color .16s ease,
+             border-color .16s ease}
+.quest:active,.gate:active,.mn-alert:active{transform:scale(.985)}
+.pill:active,.solid:active,.ghost:active{transform:scale(.94)}
+.mn-cal-cell:active{transform:scale(.88)}
+
+/* ---- the quest tick ----
+   The single most repeated interaction in the app, so it gets the most
+   attention. The box pops, the check draws itself, and a ring pulses
+   out once. */
+
+.qbox{transition:background-color .2s ease,border-color .2s ease,transform .2s cubic-bezier(.3,1.5,.5,1)}
+.quest[data-done="true"] .qbox{transform:scale(1.06)}
+.quest[data-done="true"] .qbox path{
+  animation:mn-check .32s cubic-bezier(.65,0,.35,1) both;
+  stroke-dasharray:24;
+  stroke-dashoffset:0}
+
+@keyframes mn-check{
+  from{stroke-dashoffset:24}
+  to{stroke-dashoffset:0}
+}
+
+.quest[data-done="true"] .qbox::after{
+  content:"";
+  position:absolute;
+  inset:-4px;
+  border-radius:50%;
+  border:1px solid currentColor;
+  opacity:0;
+  animation:mn-ping .5s cubic-bezier(.2,.7,.3,1) both}
+
+@keyframes mn-ping{
+  from{opacity:.55;transform:scale(.7)}
+  to{opacity:0;transform:scale(1.7)}
+}
+
+.qbox{position:relative}
+
+/* ---- bars fill from empty on arrival ----
+   The transition already covers a value changing while you watch. This
+   covers the first paint, so a board never appears pre-filled. */
+
+.bar>i,.stat-bar>i{
+  transform-origin:left center;
+  animation:mn-fill .55s cubic-bezier(.2,.8,.3,1) both;
+  animation-delay:inherit}
+
+@keyframes mn-fill{
+  from{transform:scaleX(0)}
+  to{transform:scaleX(1)}
+}
+
+/* ---- segmented control ---- */
+
+.seg{position:relative}
+.seg>button{
+  position:relative;
+  z-index:1;
+  transition:color .18s ease}
+.seg>button::after{
+  content:"";
+  position:absolute;
+  left:8%;
+  right:8%;
+  bottom:0;
+  height:2px;
+  border-radius:2px;
+  background:var(--rune);
+  transform:scaleX(0);
+  transform-origin:center;
+  transition:transform .24s cubic-bezier(.3,1.1,.4,1)}
+.seg>button[data-on="true"]::after{transform:scaleX(1)}
+
+/* ---- numbers that count ----
+   Paired with the useCountUp hook. Tabular figures stop the width
+   jittering while digits roll. */
+
+.mn-count{font-variant-numeric:tabular-nums}
+
+/* ---- header settles on scroll ---- */
+
+.topbar{transition:padding .2s ease,background-color .2s ease}
+.topbar[data-scrolled="true"]{
+  background:#060a14f2;
+  -webkit-backdrop-filter:blur(14px);
+  backdrop-filter:blur(14px)}
+
+/* ---- inputs answer focus ---- */
+
+input,select,textarea{
+  transition:border-color .16s ease,background-color .16s ease,transform .12s ease}
+input:focus,select:focus,textarea:focus{transform:translateY(-1px)}
+
+/* ---- one place to turn all of it off ----
+   Everything above collapses to a plain fade. Nothing here is load
+   bearing, so removing the motion removes nothing but the motion. */
+
+@media (prefers-reduced-motion: reduce){
+  .mn-page{animation:mn-fade .16s linear both}
+  .mn-page>*{animation-delay:0ms}
+  .mn-nav-pill{transition:none}
+  .nav>button:active,.quest:active,.gate:active,.mn-alert:active,
+  .pill:active,.solid:active,.ghost:active,.mn-cal-cell:active,
+  input:focus,select:focus,textarea:focus{transform:none}
+  .nav>button[data-on="true"] svg{transform:none}
+  .quest[data-done="true"] .qbox{transform:none}
+  .quest[data-done="true"] .qbox path,
+  .quest[data-done="true"] .qbox::after,
+  .bar>i,.stat-bar>i{animation:none}
+  .bar>i,.stat-bar>i{transform:scaleX(1)}
+  .seg>button::after{transition:none}
+}
+
+@keyframes mn-fade{
+  from{opacity:0}
+  to{opacity:1}
+}

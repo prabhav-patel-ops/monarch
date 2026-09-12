@@ -1,0 +1,613 @@
+/* ==========================================================================
+   MONARCH - theme.css
+   Motion and visual-effect layer for the System panel.
+
+   Import AFTER styles.css so the [data-rank] heat ramp can re-tune the
+   existing .rank-glyph rules:
+       import "./styles.css";
+       import "./theme.css";
+
+   Conventions
+   -----------
+   * Everything is prefixed `mn-`, except the [data-rank] custom-property
+     ramp, which is deliberately global so any descendant can read --mn-heat.
+   * Anything that runs per frame animates transform / opacity only.
+   * 120-180ms for state changes. 400-700ms for a celebration.
+   * Every animation has a prefers-reduced-motion fallback at the bottom
+     of this file. Nothing loops forever unless it is explicitly opted in
+     with an `--active` modifier.
+   ========================================================================== */
+
+
+/* --------------------------------------------------------------------------
+   0. Tokens - rank heat ramp, E dim slate -> S white-hot gold
+   Sets custom properties only, so it is safe on any element carrying
+   data-rank. Descendants (SVG sigils, chips, bars) inherit --mn-heat.
+   -------------------------------------------------------------------------- */
+[data-rank] {
+  --mn-heat: var(--rune);
+  --mn-heat-ink: var(--void);
+  --mn-heat-glow: rgba(111, 168, 255, .5);
+  --mn-heat-face: var(--mn-heat);
+}
+[data-rank="E"] {
+  --mn-heat: #66788f;
+  --mn-heat-glow: rgba(102, 120, 143, .3);
+  --mn-heat-face: linear-gradient(160deg, #7d8ea6, #5a6b81);
+}
+[data-rank="D"] {
+  --mn-heat: #4f7fd0;
+  --mn-heat-glow: rgba(79, 127, 208, .42);
+  --mn-heat-face: linear-gradient(160deg, #6a95dd, #436cb4);
+}
+[data-rank="C"] {
+  --mn-heat: #6fa8ff;
+  --mn-heat-glow: rgba(111, 168, 255, .55);
+  --mn-heat-face: linear-gradient(160deg, #8fbcff, #5b95ee);
+}
+[data-rank="B"] {
+  --mn-heat: #a6cfff;
+  --mn-heat-glow: rgba(166, 207, 255, .62);
+  --mn-heat-face: linear-gradient(160deg, #d3e8ff, #85b6f2);
+}
+[data-rank="A"] {
+  --mn-heat: #ff9a6b;
+  --mn-heat-glow: rgba(255, 154, 107, .65);
+  --mn-heat-face: linear-gradient(160deg, #ffc09b, #f5804d);
+}
+[data-rank="S"] {
+  --mn-heat: var(--gold);
+  --mn-heat-glow: rgba(255, 216, 138, .8);
+  --mn-heat-face: linear-gradient(155deg, #fff6dd 6%, #ffc94b 46%, #e09a1c);
+}
+
+/* Applied treatment. Same specificity as styles.css, later in the cascade. */
+.rank-glyph[data-rank],
+.gate-rank[data-rank],
+.mn-rank[data-rank] {
+  background: var(--mn-heat-face);
+  color: var(--mn-heat-ink);
+  filter: drop-shadow(0 0 8px var(--mn-heat-glow));
+}
+.rank-glyph[data-rank="E"],
+.gate-rank[data-rank="E"],
+.mn-rank[data-rank="E"] {
+  filter: drop-shadow(0 0 4px var(--mn-heat-glow));
+}
+.rank-glyph[data-rank="A"],
+.gate-rank[data-rank="A"],
+.mn-rank[data-rank="A"] {
+  filter: drop-shadow(0 0 11px var(--mn-heat-glow));
+}
+.rank-glyph[data-rank="S"],
+.gate-rank[data-rank="S"],
+.mn-rank[data-rank="S"] {
+  filter: drop-shadow(0 0 14px var(--mn-heat-glow));
+}
+
+/* Text-only rank tint, for headings and inline labels. */
+.mn-heat-text[data-rank] {
+  color: var(--mn-heat);
+  text-shadow: 0 0 12px var(--mn-heat-glow);
+}
+
+/* Structural helper: any card you want to overlay <PanelFrame /> on. */
+.mn-framed {
+  position: relative;
+}
+
+
+/* --------------------------------------------------------------------------
+   1. Entrance motion - staggered rise and fade
+   .mn-rise           one item
+   .mn-stagger > *    auto index for the first ten children
+   style={{ "--i": n }} to set the index by hand
+   -------------------------------------------------------------------------- */
+@keyframes mn-rise {
+  from { opacity: 0; transform: translate3d(0, 10px, 0); }
+  to   { opacity: 1; transform: none; }
+}
+
+.mn-rise {
+  animation: mn-rise .18s cubic-bezier(.2, .8, .3, 1) both;
+  animation-delay: calc(min(var(--i, 0), 9) * 36ms);
+}
+.mn-rise--slow { animation-duration: .26s; }
+
+/* Rises from the side instead - for a drawer or a detail column. */
+@keyframes mn-rise-x {
+  from { opacity: 0; transform: translate3d(-8px, 0, 0); }
+  to   { opacity: 1; transform: none; }
+}
+.mn-rise-x {
+  animation: mn-rise-x .18s cubic-bezier(.2, .8, .3, 1) both;
+  animation-delay: calc(min(var(--i, 0), 9) * 36ms);
+}
+
+.mn-stagger > *:nth-child(1) { --i: 0; }
+.mn-stagger > *:nth-child(2) { --i: 1; }
+.mn-stagger > *:nth-child(3) { --i: 2; }
+.mn-stagger > *:nth-child(4) { --i: 3; }
+.mn-stagger > *:nth-child(5) { --i: 4; }
+.mn-stagger > *:nth-child(6) { --i: 5; }
+.mn-stagger > *:nth-child(7) { --i: 6; }
+.mn-stagger > *:nth-child(8) { --i: 7; }
+.mn-stagger > *:nth-child(9) { --i: 8; }
+.mn-stagger > *:nth-child(n+10) { --i: 9; }
+
+
+/* --------------------------------------------------------------------------
+   2. Level-up sequence - 600ms celebration
+   <div class="levelup mn-levelup">                     (or mn-levelup--down)
+     <div class="mn-levelup__stage" aria-hidden="true">
+       <span class="mn-levelup__ring"></span>
+       <span class="mn-levelup__ring mn-levelup__ring--2"></span>
+       <span class="mn-levelup__sweep"></span>
+     </div>
+     <div class="mn-levelup__body"> ... h2 / p / button ... </div>
+   </div>
+   Put the rank glyph inside __body with class mn-levelup__glyph.
+   -------------------------------------------------------------------------- */
+.mn-levelup {
+  --mn-cel: var(--gold);
+  --mn-cel-glow: rgba(255, 194, 75, .55);
+  --mn-cel-soft: rgba(255, 194, 75, .22);
+  overflow: hidden;
+}
+.mn-levelup--down {
+  --mn-cel: var(--blood);
+  --mn-cel-glow: rgba(255, 77, 109, .4);
+  --mn-cel-soft: rgba(255, 77, 109, .16);
+}
+
+.mn-levelup__stage {
+  position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.mn-levelup__ring {
+  position: absolute;
+  width: 132px;
+  height: 132px;
+  border: 1px solid var(--mn-cel);
+  border-radius: 50%;
+  opacity: 0;
+  transform: scale(.25);
+  animation: mn-ring .6s cubic-bezier(.15, .7, .3, 1) both;
+}
+/* Second ring is an angular diamond, not a circle. */
+.mn-levelup__ring--2 {
+  width: 108px;
+  height: 108px;
+  border-radius: 0;
+  animation: mn-ring-diamond .56s cubic-bezier(.15, .7, .3, 1) .12s both;
+}
+@keyframes mn-ring {
+  0%   { opacity: 0;   transform: scale(.25); }
+  20%  { opacity: .85; }
+  100% { opacity: 0;   transform: scale(2.6); }
+}
+@keyframes mn-ring-diamond {
+  0%   { opacity: 0;  transform: rotate(45deg) scale(.2); }
+  22%  { opacity: .6; }
+  100% { opacity: 0;  transform: rotate(45deg) scale(2.1); }
+}
+
+/* Light sweep - a raking bar of light crossing the panel once. */
+.mn-levelup__sweep {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 46%;
+  height: 210px;
+  margin-top: -105px;
+  opacity: 0;
+  transform: translate3d(-140%, 0, 0) skewX(-14deg);
+  background: linear-gradient(90deg, transparent, var(--mn-cel-soft), transparent);
+  animation: mn-sweep .52s cubic-bezier(.3, .1, .2, 1) .1s both;
+}
+@keyframes mn-sweep {
+  0%   { opacity: 0; transform: translate3d(-140%, 0, 0) skewX(-14deg); }
+  25%  { opacity: 1; }
+  75%  { opacity: 1; }
+  100% { opacity: 0; transform: translate3d(320%, 0, 0) skewX(-14deg); }
+}
+
+.mn-levelup__body {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  padding: 24px;
+  animation: mn-rise .22s cubic-bezier(.2, .8, .3, 1) .1s both;
+}
+
+/* The glyph itself: overshoot and settle. */
+.mn-levelup__glyph {
+  animation: mn-glyph-pop .6s cubic-bezier(.2, .9, .25, 1) both;
+}
+@keyframes mn-glyph-pop {
+  0%   { opacity: 0; transform: scale(.4) rotate(-8deg); }
+  42%  { opacity: 1; transform: scale(1.16) rotate(0deg); }
+  68%  { transform: scale(.97); }
+  100% { opacity: 1; transform: scale(1); }
+}
+/* Level down: the glyph drops in from above and settles heavy. No overshoot. */
+.mn-levelup--down .mn-levelup__glyph {
+  animation: mn-glyph-drop .6s cubic-bezier(.4, 0, .2, 1) both;
+}
+@keyframes mn-glyph-drop {
+  0%   { opacity: 0; transform: translate3d(0, -18px, 0) scale(1.14); }
+  55%  { opacity: 1; transform: translate3d(0, 3px, 0) scale(.96); }
+  100% { opacity: 1; transform: none; }
+}
+/* Down variant is slower and shallower - a settling, not a burst. */
+.mn-levelup--down .mn-levelup__ring { animation-duration: .68s; }
+.mn-levelup--down .mn-levelup__ring--2 { animation-duration: .62s; }
+.mn-levelup--down .mn-levelup__sweep { animation-duration: .66s; }
+
+
+/* --------------------------------------------------------------------------
+   3. XP / progress bar - transform-based fill
+   <div class="mn-bar" data-charging={changing}>
+     <i class="mn-bar__fill" style={{ "--p": 0.62 }} />
+     <i class="mn-bar__glint" />
+   </div>
+   --p is 0..1. Set data-charging="true" for ~700ms after the value moves;
+   the highlight sweeps once and then stops. It never loops.
+   Tint per stat with style={{ "--mn-bar-b": meta.color }}.
+   -------------------------------------------------------------------------- */
+.mn-bar {
+  --mn-bar-a: var(--rune-dim);
+  --mn-bar-b: var(--rune);
+  position: relative;
+  height: 7px;
+  overflow: hidden;
+  background: rgba(111, 168, 255, .12);
+  clip-path: polygon(3px 0, 100% 0, calc(100% - 3px) 100%, 0 100%);
+}
+.mn-bar--thin { height: 5px; clip-path: none; background: rgba(255, 255, 255, .07); }
+.mn-bar--thick { height: 10px; }
+
+.mn-bar__fill {
+  position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
+  display: block;
+  transform-origin: left center;
+  transform: scaleX(var(--p, 0));
+  background: linear-gradient(90deg, var(--mn-bar-a), var(--mn-bar-b));
+  transition: transform .42s cubic-bezier(.2, .8, .3, 1);
+}
+/* A hairline at the leading edge so the fill reads as projected light.
+   It sits inside the scaled fill, so it counter-scales to stay 2px wide
+   and transitions in step with its parent. */
+.mn-bar__fill::after {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0; right: 0;
+  width: 2px;
+  background: var(--rune-bright);
+  opacity: .85;
+  transform-origin: right center;
+  transform: scaleX(calc(1 / max(var(--p, 1), .02)));
+  transition: transform .42s cubic-bezier(.2, .8, .3, 1);
+}
+
+.mn-bar__glint {
+  position: absolute;
+  top: 0; bottom: 0; left: 0;
+  width: 30%;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(-120%, 0, 0);
+  background: linear-gradient(90deg, transparent, rgba(216, 234, 255, .7), transparent);
+}
+.mn-bar[data-charging="true"] .mn-bar__glint {
+  animation: mn-glint .6s cubic-bezier(.35, 0, .3, 1) both;
+}
+@keyframes mn-glint {
+  0%   { opacity: 0; transform: translate3d(-120%, 0, 0); }
+  18%  { opacity: 1; }
+  80%  { opacity: 1; }
+  100% { opacity: 0; transform: translate3d(340%, 0, 0); }
+}
+
+/* Penalty / drain: the fill retreats in the warning colour. */
+.mn-bar--drain { --mn-bar-a: #7a2438; --mn-bar-b: var(--blood); }
+.mn-bar--gold  { --mn-bar-a: #8a6416; --mn-bar-b: var(--gold); }
+
+
+/* --------------------------------------------------------------------------
+   4. Gate portal - rune ring
+   .mn-portal          static rings (safe in a list, no motion)
+   .mn-portal--active  slow rotation. Use on one focused gate only.
+   .mn-portal__spin    child (e.g. <GateSigil />) rotates with the ring
+   Size with --mn-portal-size.
+   -------------------------------------------------------------------------- */
+.mn-portal {
+  --mn-portal-size: 64px;
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  isolation: isolate;
+}
+.mn-portal::before,
+.mn-portal::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  z-index: -1;
+}
+/* Outer dashed ring reads as rune ticks. */
+.mn-portal::before {
+  width: var(--mn-portal-size);
+  height: var(--mn-portal-size);
+  border: 1px dashed var(--mn-heat, var(--line));
+  border-radius: 50%;
+  opacity: .45;
+}
+/* Inner diamond, counter-rotating. */
+.mn-portal::after {
+  width: calc(var(--mn-portal-size) * .62);
+  height: calc(var(--mn-portal-size) * .62);
+  border: 1px solid var(--mn-heat, var(--line-soft));
+  opacity: .3;
+  transform: rotate(45deg);
+}
+
+@keyframes mn-spin     { to { transform: rotate(360deg); } }
+@keyframes mn-spin-rev { to { transform: rotate(-360deg); } }
+@keyframes mn-spin-diamond {
+  from { transform: rotate(45deg); }
+  to   { transform: rotate(-315deg); }
+}
+
+.mn-portal--active::before { animation: mn-spin 28s linear infinite; }
+.mn-portal--active::after { animation: mn-spin-diamond 41s linear infinite; }
+.mn-portal--active .mn-portal__spin { animation: mn-spin-rev 34s linear infinite; }
+
+/* An opening gate glows hotter but still does not pulse. */
+.mn-portal--open::before { opacity: .75; }
+.mn-portal--open::after { opacity: .5; }
+/* A collapsed gate: rings go cold and thin. */
+.mn-portal--collapsed::before,
+.mn-portal--collapsed::after { opacity: .16; border-color: var(--text-faint); }
+
+
+/* --------------------------------------------------------------------------
+   5. Shadow extraction - one-shot 700ms
+   <div class="mn-extract"> ...the new shadow row... </div>
+   Mount the class once, when the shadow is created. It does not repeat.
+   -------------------------------------------------------------------------- */
+.mn-extract {
+  position: relative;
+  /* isolate so the z-index:-1 bloom stays above the panel background
+     instead of sinking behind .win__in */
+  isolation: isolate;
+  animation: mn-extract-rise .7s cubic-bezier(.16, .84, .3, 1) both;
+}
+@keyframes mn-extract-rise {
+  0%   { opacity: 0;   transform: translate3d(0, 30px, 0) scale(.96); }
+  40%  { opacity: .35; }
+  70%  { opacity: 1;   transform: translate3d(0, -3px, 0) scale(1.01); }
+  100% { opacity: 1;   transform: none; }
+}
+
+/* Dark-to-blue bloom rising underneath it. */
+.mn-extract::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 240px;
+  height: 240px;
+  margin: -120px 0 0 -120px;
+  pointer-events: none;
+  z-index: -1;
+  border-radius: 50%;
+  opacity: 0;
+  transform: translate3d(0, 26%, 0) scale(.28);
+  background: radial-gradient(
+    circle,
+    rgba(111, 168, 255, .5) 0%,
+    rgba(60, 95, 158, .3) 34%,
+    rgba(6, 10, 20, 0) 68%
+  );
+  animation: mn-extract-bloom .7s cubic-bezier(.2, .7, .3, 1) both;
+}
+@keyframes mn-extract-bloom {
+  0%   { opacity: 0;   transform: translate3d(0, 26%, 0) scale(.28); }
+  30%  { opacity: .95; }
+  100% { opacity: 0;   transform: translate3d(0, -12%, 0) scale(1.6); }
+}
+
+/* Optional: the silhouette itself climbing out. Put <ShadowSoldier /> in here. */
+.mn-extract__figure {
+  animation: mn-figure-rise .7s cubic-bezier(.16, .84, .3, 1) .06s both;
+}
+@keyframes mn-figure-rise {
+  0%   { opacity: 0;  transform: translate3d(0, 16px, 0) scaleY(.7); }
+  45%  { opacity: .6; }
+  100% { opacity: 1;  transform: none; }
+}
+
+
+/* --------------------------------------------------------------------------
+   6. Sealed / locked panel
+   <div class="win-wrap mn-sealed" data-seal="Sealed"> ... </div>
+   Add mn-sealed--locked to also kill pointer events.
+   -------------------------------------------------------------------------- */
+.mn-sealed {
+  position: relative;
+  /* filter is set once and never transitioned - it is expensive to animate */
+  filter: grayscale(.6) brightness(.68);
+}
+.mn-sealed--locked {
+  pointer-events: none;
+  user-select: none;
+}
+/* Diagonal hatch. */
+.mn-sealed::before {
+  content: "";
+  position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(111, 168, 255, .07) 0 2px,
+    transparent 2px 9px
+  );
+}
+/* Optional stamp, driven by the data-seal attribute. */
+.mn-sealed[data-seal]::after {
+  content: attr(data-seal);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 3;
+  pointer-events: none;
+  font-family: Rajdhani, Segoe UI, ui-sans-serif, system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .3em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  background: rgba(6, 10, 20, .72);
+  border: 1px solid var(--line-soft);
+  padding: 5px 12px 5px 15px;
+  white-space: nowrap;
+}
+
+/* A softer focus dim, for "everything except the current quest". */
+.mn-dim {
+  opacity: .38;
+  transition: opacity .16s ease;
+}
+.mn-dim:hover,
+.mn-dim:focus-within { opacity: .7; }
+
+
+/* --------------------------------------------------------------------------
+   7. Toast and modal - a system panel resolving into view
+   Toast:  <div class="toast mn-toast">   add mn-toast--out to dismiss
+   Modal:  <div class="mn-modal"><div class="mn-modal__panel"> ... </div></div>
+   Exit classes need the caller to delay unmount by the exit duration (140ms).
+   -------------------------------------------------------------------------- */
+@keyframes mn-toast-in {
+  0%   { opacity: 0; transform: translate(-50%, 0) scale3d(.86, .06, 1); }
+  55%  { opacity: 1; transform: translate(-50%, 0) scale3d(1.02, 1, 1); }
+  100% { opacity: 1; transform: translate(-50%, 0) scale3d(1, 1, 1); }
+}
+@keyframes mn-toast-out {
+  0%   { opacity: 1; transform: translate(-50%, 0) scale3d(1, 1, 1); }
+  100% { opacity: 0; transform: translate(-50%, 0) scale3d(.94, .06, 1); }
+}
+.mn-toast {
+  transform-origin: center;
+  animation: mn-toast-in .17s cubic-bezier(.2, .8, .3, 1) both;
+}
+.mn-toast--out {
+  animation: mn-toast-out .14s cubic-bezier(.5, 0, .8, .3) both;
+}
+
+@keyframes mn-fade     { from { opacity: 0; } to { opacity: 1; } }
+@keyframes mn-fade-out { from { opacity: 1; } to { opacity: 0; } }
+
+.mn-modal {
+  position: fixed;
+  top: 0; right: 0; bottom: 0; left: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(6, 10, 20, .8);
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+  animation: mn-fade .16s ease both;
+}
+.mn-modal--out { animation: mn-fade-out .14s ease both; }
+
+.mn-modal__panel {
+  width: 100%;
+  max-width: 420px;
+  transform-origin: center;
+  animation: mn-panel-resolve .18s cubic-bezier(.2, .8, .3, 1) .02s both;
+}
+.mn-modal__panel--out {
+  animation: mn-panel-collapse .14s cubic-bezier(.5, 0, .8, .3) both;
+}
+@keyframes mn-panel-resolve {
+  0%   { opacity: 0; transform: scale3d(.9, .04, 1); }
+  60%  { opacity: 1; transform: scale3d(1, 1.03, 1); }
+  100% { opacity: 1; transform: scale3d(1, 1, 1); }
+}
+@keyframes mn-panel-collapse {
+  0%   { opacity: 1; transform: scale3d(1, 1, 1); }
+  100% { opacity: 0; transform: scale3d(.94, .04, 1); }
+}
+
+/* Same resolve, for a Win that is not a modal. Pair with animate={false}. */
+.mn-resolve {
+  transform-origin: top;
+  animation: mn-panel-resolve .18s cubic-bezier(.2, .8, .3, 1) both;
+}
+
+
+/* --------------------------------------------------------------------------
+   8. Reduced motion - everything degrades to a fade or to nothing.
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .mn-rise,
+  .mn-rise-x,
+  .mn-levelup__body,
+  .mn-extract,
+  .mn-extract__figure,
+  .mn-toast,
+  .mn-modal,
+  .mn-modal__panel,
+  .mn-resolve {
+    animation-name: mn-fade;
+    animation-duration: .12s;
+    animation-delay: 0s;
+    animation-timing-function: linear;
+  }
+
+  .mn-toast--out,
+  .mn-modal--out,
+  .mn-modal__panel--out {
+    animation-name: mn-fade-out;
+    animation-duration: .12s;
+    animation-delay: 0s;
+  }
+
+  /* Decorative layers simply do not appear. Their base state is opacity 0. */
+  .mn-levelup__ring,
+  .mn-levelup__ring--2,
+  .mn-levelup__sweep,
+  .mn-extract::before,
+  .mn-bar[data-charging="true"] .mn-bar__glint {
+    animation: none;
+  }
+
+  /* The glyph still arrives, it just does not overshoot. */
+  .mn-levelup__glyph,
+  .mn-levelup--down .mn-levelup__glyph {
+    animation: mn-fade .16s linear both;
+  }
+
+  /* Portal rings hold still. */
+  .mn-portal--active::before,
+  .mn-portal--active::after,
+  .mn-portal--active .mn-portal__spin {
+    animation: none;
+  }
+
+  .mn-bar__fill,
+  .mn-bar__fill::after,
+  .mn-dim { transition: none; }
+}
