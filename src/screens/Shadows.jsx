@@ -3,10 +3,13 @@ import { Win } from "../ui.jsx";
 import { ShadowSoldier } from "../art.jsx";
 import { STATS, STAT_META, RATCHET_RULES, DIFFICULTY } from "../engine.js";
 import { SHADOW_PRESETS } from "../data.js";
-import { exportJson, importJson } from "../store.js";
+import { exportJson } from "../store.js";
 import { saveFile } from "../download.js";
 
-export default function Shadows({ state, onExtract, onDismiss, onSettings, onImport, onReset, onProgression }) {
+export default function Shadows({
+  state, onExtract, onDismiss, onSettings, onImport, onReset, onRestoreRecovery,
+  onProgression, backupStatus = {},
+}) {
   const [name, setName] = useState("");
   const [saveNote, setSaveNote] = useState("");
   const [stat, setStat] = useState("INT");
@@ -21,16 +24,26 @@ export default function Shadows({ state, onExtract, onDismiss, onSettings, onImp
   const download = async () => {
     const name = `monarch-backup-${new Date().toISOString().slice(0, 10)}.json`;
     const r = await saveFile(exportJson(state), name, "application/json");
-    setSaveNote(r.ok ? `Saved ${name}` : r.reason);
+    setSaveNote(r.ok
+      ? r.verified ? `Verified saved ${name}` : `Download started for ${name}; check Files or Downloads.`
+      : r.reason);
+  };
+
+  const downloadDamaged = async () => {
+    const name = `monarch-damaged-${new Date().toISOString().slice(0, 10)}.txt`;
+    const result = await saveFile(backupStatus.damagedRaw, name, "text/plain;charset=utf-8");
+    setSaveNote(result.ok
+      ? result.verified ? `Verified saved ${name}` : `Download started for ${name}; check Files or Downloads.`
+      : result.reason);
   };
 
   const upload = (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
     const r = new FileReader();
-    r.onload = () => {
+    r.onload = async () => {
       try {
-        onImport(importJson(String(r.result)));
+        await onImport(String(r.result));
       } catch (err) {
         alert(err.message);
       }
@@ -187,24 +200,46 @@ export default function Shadows({ state, onExtract, onDismiss, onSettings, onImp
 
       <Win title="Backup">
         <p className="faint" style={{ marginTop: 0 }}>
-          Everything lives on this device only. Nothing is uploaded anywhere. Export before clearing your browser data
-          or switching phones, or the log is gone.
+          Everything stays on this device. Recovery checkpoints use IndexedDB; exported files carry a checksum and
+          lineage so identical, older, fast-forward and divergent imports are handled explicitly.
         </p>
+        <div className="kv">
+          <span>Durable browser storage</span>
+          <b>{backupStatus.persistenceStatus === "granted" ? "Granted" : backupStatus.persistenceStatus === "denied" ? "Not granted" : "Unavailable"}</b>
+        </div>
+        {backupStatus.writeBlocked && (
+          <p className="faint" style={{ color: "var(--gold)" }}>
+            Writes are paused to protect a corrupt or newer save. Restore a checkpoint or reload before editing.
+          </p>
+        )}
+        {backupStatus.damagedRaw && (
+          <button className="ghost" style={{ width: "100%", marginBottom: 10 }} onClick={downloadDamaged}>
+            Export damaged save for recovery
+          </button>
+        )}
         <div className="row">
           <button className="ghost" onClick={download}>Export</button>
           <button className="ghost" onClick={() => fileRef.current?.click()}>Import</button>
         </div>
         {saveNote && (
-          <p className="faint" style={{ margin: "8px 0 0", color: saveNote.startsWith("Saved") ? "var(--agi)" : "var(--gold)" }}>
+          <p className="faint" style={{ margin: "8px 0 0", color: saveNote.startsWith("Verified") ? "var(--agi)" : "var(--gold)" }}>
             {saveNote}
           </p>
         )}
         <input ref={fileRef} type="file" accept="application/json" style={{ display: "none" }} onChange={upload} />
+        <button className="ghost" style={{ width: "100%", marginTop: 10 }} onClick={onRestoreRecovery}>
+          Restore latest checkpoint
+        </button>
+        <p className="faint" style={{ marginBottom: 0 }}>
+          Clearing site data, changing origin/host, private browsing, or reinstalling the PWA can remove both the live
+          save and local checkpoints. Keep an exported file elsewhere. Device time is informational; branch order uses
+          revision ancestry, not clocks. Photos remain separate and are never embedded in <code>monarch.v1</code>.
+        </p>
         <button
           className="danger"
           style={{ width: "100%", marginTop: 10 }}
           onClick={() => {
-            if (confirm("Erase every quest, stat and log on this device? This cannot be undone.")) onReset();
+            if (confirm("Erase every quest, stat and log on this device? A recovery checkpoint will be kept when storage allows.")) onReset();
           }}
         >
           Erase everything

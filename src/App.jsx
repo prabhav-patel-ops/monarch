@@ -1,5 +1,16 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { load, save, emptyState, hasLocalSave } from "./store.js";
+import {
+  KEY,
+  loadState,
+  saveState,
+  emptyState,
+  hasLocalSave,
+  prepareImport,
+  replaceState,
+  restoreLatestSnapshot,
+  requestPersistentStorage,
+  createRecoverySnapshot,
+} from "./store.js";
 import {
   dateKey, shiftKey, generateDay, recomputeTotals, computeStreak,
   levelFromTotalXp, rankFromLevel, applyRatchet, daysBetween,
@@ -50,8 +61,15 @@ const TABS = [
 ];
 
 export default function App() {
-  const [state, setState] = useState(() => load());
+  const initialLoad = useRef(null);
+  if (initialLoad.current === null) initialLoad.current = loadState();
+
+  const [state, setState] = useState(() => initialLoad.current.state);
   const [localSavePresent, setLocalSavePresent] = useState(() => hasLocalSave());
+  const [storageStatus, setStorageStatus] = useState(() => initialLoad.current.status);
+  const [writeBlocked, setWriteBlocked] = useState(() => initialLoad.current.blocked);
+  const [persistenceStatus, setPersistenceStatus] = useState("checking");
+  const writeHash = useRef(initialLoad.current.hash || null);
   const [tab, setTab] = useState("quests");
   const [levelUp, setLevelUp] = useState(null);
   const [levelDown, setLevelDown] = useState(null);
@@ -66,10 +84,34 @@ export default function App() {
     toastTimer.current = setTimeout(() => setToast(null), 2200);
   }, []);
 
+  useEffect(() => {
+    requestPersistentStorage().then((result) => setPersistenceStatus(result.status));
+  }, []);
+
+  /* Another tab changing monarch.v1 makes this in-memory branch stale. Keep a
+     recovery copy and stop writes instead of silently overwriting that tab. */
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const onStorage = (event) => {
+      if (event.key !== KEY || event.newValue === event.oldValue) return;
+      createRecoverySnapshot(state, "stale-tab-branch").catch(() => {});
+      setWriteBlocked(true);
+      setStorageStatus("conflict");
+      setLocalSavePresent(event.newValue !== null);
+      flash("Another tab changed this save. Reload before editing.");
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [state, flash]);
+
   /* ---- every mutation re-derives totals from the day log, then persists ---- */
   const commit = useCallback(
     (mutate) => {
       setState((prev) => {
+        if (writeBlocked) {
+          flash("Saving is paused until this device state is recovered or reloaded.");
+          return prev;
+        }
         const draft = mutate(clone(prev));
 
         const { prog, raised } = applyRatchet(draft.days, todayKey, draft.progression, draft.settings);
@@ -103,12 +145,20 @@ export default function App() {
           if (draft.settings.soundOn) chime("penalty");
         }
 
-        save(draft);
+        const written = saveState(draft, { expectedHash: writeHash.current, reason: "mutation" });
+        if (!written.ok) {
+          setWriteBlocked(written.code === "conflict" || written.code === "corrupt-live");
+          setStorageStatus(written.code === "conflict" ? "conflict" : "error");
+          flash(written.reason);
+          return prev;
+        }
+        writeHash.current = written.hash;
+        setStorageStatus("ok");
         setLocalSavePresent(hasLocalSave());
         return draft;
       });
     },
-    [todayKey]
+    [todayKey, writeBlocked, flash]
   );
 
   /* ---- generate today, and backfill up to a week of missed days ---- */
@@ -390,13 +440,71 @@ export default function App() {
     });
   }, [commit]);
 
-  const onImport = useCallback((next) => {
-    save(next);
-    setLocalSavePresent(hasLocalSave());
-    setState(next);
-    flash("Backup restored");
+  const onImport = useCallback(async (text) => {
+    try {
+      const plan = prepareImport(text, state);
+      if (plan.relation === "identical") {
+        flash("This backup is identical; nothing changed.");
+        return;
+      }
+      if (plan.relation === "older") {
+        alert("This backup is older than the current branch. It was not imported.");
+        return;
+      }
+      if (plan.relation === "divergent") {
+        const proceed = confirm(
+          "This backup is a different branch. MONARCH will preserve the current branch as a recovery checkpoint before switching. Continue?"
+        );
+        if (!proceed) return;
+      }
+
+      const result = await replaceState(plan.state, {
+        reason: "import",
+        lineage: plan.lineage,
+        allowCorruptReplace: writeBlocked,
+        preserveBranch: plan.relation === "divergent",
+      });
+      if (!result.ok) {
+        flash(result.reason);
+        return;
+      }
+      writeHash.current = result.hash;
+      setState(plan.state);
+      setWriteBlocked(false);
+      setStorageStatus("ok");
+      setLocalSavePresent(hasLocalSave());
+      flash(plan.relation === "descendant" ? "Backup fast-forwarded" : "Backup branch restored");
+    } catch (error) {
+      alert(error.message);
+    }
+  }, [state, writeBlocked, flash]);
+
+  const onReset = useCallback(async () => {
+    const result = await replaceState(emptyState(), { reason: "reset", allowCorruptReplace: true });
+    if (!result.ok) {
+      flash(result.reason);
+      return;
+    }
+    writeHash.current = result.hash;
+    setState(emptyState());
+    setWriteBlocked(false);
+    setStorageStatus("ok");
+    setLocalSavePresent(true);
+    if (typeof location !== "undefined" && typeof location.reload === "function") location.reload();
   }, [flash]);
-  const onReset = useCallback(() => { const e = emptyState(); save(e); setState(e); location.reload(); }, []);
+
+  const onRestoreRecovery = useCallback(async () => {
+    try {
+      const result = await restoreLatestSnapshot();
+      if (!result.ok) {
+        flash(result.reason);
+        return;
+      }
+      if (typeof location !== "undefined" && typeof location.reload === "function") location.reload();
+    } catch {
+      flash("Recovery storage is unavailable on this device.");
+    }
+  }, [flash]);
 
   const [nowMins, setNowMins] = useState(() => new Date().getHours() * 60 + new Date().getMinutes());
   useEffect(() => {
@@ -432,9 +540,15 @@ export default function App() {
     state, todayKey, onToggle, onExcuse, onAddGate, onClearGate, onDeleteGate, onLogRating,
     onToggleExercise, onLogSets, onLogCardio, onRenameExercise,
     onAddMeal, onRemoveMeal, onSetWater, onLogWeight, onLogWaist, onLogSleep,
-    onExtract, onDismiss, onSettings, onImport, onReset, onProgression, flash,
+    onExtract, onDismiss, onSettings, onImport, onReset, onRestoreRecovery, onProgression, flash,
     onStartSeason, onSchedule, onReminder, onLogFocus, onJournal, alerts, setTab,
     onAddExtra, onRemoveExtra,
+    backupStatus: {
+      storageStatus,
+      persistenceStatus,
+      writeBlocked,
+      damagedRaw: initialLoad.current.corruptRaw || null,
+    },
   };
 
   return (
@@ -447,15 +561,19 @@ export default function App() {
         </div>
         <div
           className="mn-data-status"
-          data-present={localSavePresent}
+          data-present={localSavePresent && !writeBlocked}
           role="status"
           aria-live="polite"
-          title={localSavePresent ? "monarch.v1 is stored on this device" : "No monarch.v1 save is stored on this device"}
+          title={writeBlocked
+            ? "Writes are paused to protect an invalid or newer monarch.v1 save"
+            : localSavePresent ? "monarch.v1 is stored on this device" : "No monarch.v1 save is stored on this device"}
         >
           <span className="mn-data-status__dot" aria-hidden="true" />
           <span className="mn-data-status__copy">
             <span className="mn-data-status__label">Data status</span>
-            <span className="mn-data-status__value">{localSavePresent ? "Local save" : "No local save"}</span>
+            <span className="mn-data-status__value">
+              {writeBlocked ? "Write paused" : localSavePresent ? "Local save" : "No local save"}
+            </span>
           </span>
         </div>
       </header>
