@@ -57,7 +57,7 @@ export async function saveFile(text, filename, mime = "text/plain;charset=utf-8"
   if (saver) {
     try {
       await saver.save({ filename, data: text });
-      return { ok: true, via: "host" };
+      return { ok: true, via: "host", verified: true };
     } catch (err) {
       const code = (err && err.code) || "unavailable";
       return { ok: false, code, reason: REASON[code] || "This viewer could not save the file." };
@@ -66,7 +66,9 @@ export async function saveFile(text, filename, mime = "text/plain;charset=utf-8"
 
   try {
     anchorSave(text, filename, mime);
-    return { ok: true, via: "browser" };
+    /* An anchor click proves only that the browser accepted the request. It
+       cannot prove the user kept the file or where the browser placed it. */
+    return { ok: true, via: "browser", verified: false };
   } catch {
     return { ok: false, code: "unavailable", reason: "The browser refused the download." };
   }
