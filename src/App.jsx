@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { load, save, emptyState } from "./store.js";
+import { load, save, emptyState, hasLocalSave } from "./store.js";
 import {
   dateKey, shiftKey, generateDay, recomputeTotals, computeStreak,
   levelFromTotalXp, rankFromLevel, applyRatchet, daysBetween,
@@ -51,6 +51,7 @@ const TABS = [
 
 export default function App() {
   const [state, setState] = useState(() => load());
+  const [localSavePresent, setLocalSavePresent] = useState(() => hasLocalSave());
   const [tab, setTab] = useState("quests");
   const [levelUp, setLevelUp] = useState(null);
   const [levelDown, setLevelDown] = useState(null);
@@ -103,6 +104,7 @@ export default function App() {
         }
 
         save(draft);
+        setLocalSavePresent(hasLocalSave());
         return draft;
       });
     },
@@ -388,7 +390,12 @@ export default function App() {
     });
   }, [commit]);
 
-  const onImport = useCallback((next) => { save(next); setState(next); flash("Backup restored"); }, [flash]);
+  const onImport = useCallback((next) => {
+    save(next);
+    setLocalSavePresent(hasLocalSave());
+    setState(next);
+    flash("Backup restored");
+  }, [flash]);
   const onReset = useCallback(() => { const e = emptyState(); save(e); setState(e); location.reload(); }, []);
 
   const [nowMins, setNowMins] = useState(() => new Date().getHours() * 60 + new Date().getMinutes());
@@ -437,6 +444,19 @@ export default function App() {
         <div className="topbar-meta">
           <div className="topbar-name">{state.hunter.name}</div>
           <div className="topbar-sub">Level {level} · {state.streak.current} day streak</div>
+        </div>
+        <div
+          className="mn-data-status"
+          data-present={localSavePresent}
+          role="status"
+          aria-live="polite"
+          title={localSavePresent ? "monarch.v1 is stored on this device" : "No monarch.v1 save is stored on this device"}
+        >
+          <span className="mn-data-status__dot" aria-hidden="true" />
+          <span className="mn-data-status__copy">
+            <span className="mn-data-status__label">Data status</span>
+            <span className="mn-data-status__value">{localSavePresent ? "Local save" : "No local save"}</span>
+          </span>
         </div>
       </header>
 

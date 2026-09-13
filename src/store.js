@@ -221,6 +221,14 @@ export function load() {
   }
 }
 
+export function hasLocalSave() {
+  try {
+    return localStorage.getItem(KEY) !== null;
+  } catch {
+    return false;
+  }
+}
+
 export function save(state) {
   try {
     localStorage.setItem(KEY, JSON.stringify(state));

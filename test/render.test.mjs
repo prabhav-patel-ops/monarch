@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { emptyState, hydrate } from "../src/store.js";
+import { emptyState, hydrate, hasLocalSave } from "../src/store.js";
 import { generateDay, shiftKey, recomputeTotals, computeStreak, dateKey } from "../src/engine.js";
 import Status from "../src/screens/Status.jsx";
 import Quests from "../src/screens/Quests.jsx";
@@ -182,6 +182,23 @@ t("hydrate survives rubbish", () => {
   assert.ok(hydrate(42).settings);
 });
 
+t("local save presence checks the monarch.v1 key", () => {
+  const original = globalThis.localStorage;
+  const stored = new Map();
+  globalThis.localStorage = { getItem: (key) => stored.get(key) ?? null };
+
+  try {
+    assert.equal(hasLocalSave(), false);
+    stored.set("another.key", "data");
+    assert.equal(hasLocalSave(), false);
+    stored.set("monarch.v1", "data");
+    assert.equal(hasLocalSave(), true);
+  } finally {
+    if (original === undefined) delete globalThis.localStorage;
+    else globalThis.localStorage = original;
+  }
+});
+
 t("a partial save renders every screen without throwing", () => {
   const s = hydrate({ statXp: { INT: 400 }, totalXp: 400, days: {} });
   Object.entries(screens).forEach(([name, C]) => {
@@ -230,6 +247,21 @@ t("the app shell renders end to end", () => {
   const html = renderToStaticMarkup(React.createElement(App));
   assert.match(html, /Hunter|Status/);
   assert.ok(html.includes("<nav"), "the tab bar is present");
+});
+
+t("the app shell reports when a local save is present", () => {
+  const original = globalThis.localStorage;
+  const saved = JSON.stringify(emptyState());
+  globalThis.localStorage = { getItem: (key) => key === "monarch.v1" ? saved : null };
+
+  try {
+    const html = renderToStaticMarkup(React.createElement(App));
+    assert.match(html, /Data status/);
+    assert.match(html, /Local save/);
+  } finally {
+    if (original === undefined) delete globalThis.localStorage;
+    else globalThis.localStorage = original;
+  }
 });
 
 console.log(`\n${pass} passing`);
