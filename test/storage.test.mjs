@@ -132,6 +132,28 @@ await t("an interrupted first write recovers its verified pending record", () =>
   assert.equal(storage.getItem(PENDING_KEY), null);
 });
 
+await t("a failure after the live write restores the previous state", () => {
+  storage.clear();
+  const first = saveState(stateWithXp(10));
+  const originalSetItem = storage.setItem.bind(storage);
+  let failMetadataOnce = true;
+  storage.setItem = (key, value) => {
+    if (key === META_KEY && failMetadataOnce) {
+      failMetadataOnce = false;
+      throw new Error("simulated interruption");
+    }
+    originalSetItem(key, value);
+  };
+  try {
+    const failed = saveState(stateWithXp(20), { expectedHash: first.hash });
+    assert.equal(failed.ok, false);
+    assert.equal(failed.code, "write-failed");
+    assert.equal(JSON.parse(storage.getItem(KEY)).totalXp, 10);
+  } finally {
+    storage.setItem = originalSetItem;
+  }
+});
+
 await t("portable backups validate their checksum", () => {
   storage.clear();
   const state = stateWithXp(12);
