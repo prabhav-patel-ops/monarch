@@ -27,6 +27,10 @@ import Calendar from "./screens/Calendar.jsx";
 import Focus from "./screens/Focus.jsx";
 import Shadows from "./screens/Shadows.jsx";
 import SystemChat from "./screens/System.jsx";
+import {
+  applyConfirmedRecovery,
+  CONFIRMED_RECOVERY_ID,
+} from "./confirmed-recovery.js";
 
 const MAX_BACKFILL = 7;
 
@@ -34,6 +38,53 @@ const MAX_BACKFILL = 7;
 // here because the state holds nothing but plain data.
 const clone = (o) =>
   typeof structuredClone === "function" ? structuredClone(o) : JSON.parse(JSON.stringify(o));
+
+function requestedRecovery() {
+  if (typeof window === "undefined") return null;
+  return new URLSearchParams(window.location.search).get("recover");
+}
+
+function clearRecoveryRequest() {
+  if (typeof window === "undefined" || typeof window.history?.replaceState !== "function") return;
+  const url = new URL(window.location.href);
+  url.searchParams.delete("recover");
+  window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+}
+
+function loadInitialState() {
+  const loaded = loadState();
+  if (requestedRecovery() !== CONFIRMED_RECOVERY_ID) return loaded;
+  if (loaded.blocked) {
+    return {
+      ...loaded,
+      recovery: { ok: false, message: "Recovery paused: export or restore the damaged save first." },
+    };
+  }
+
+  createRecoverySnapshot(loaded.state, `before-${CONFIRMED_RECOVERY_ID}`, loaded.meta).catch(() => {});
+  const recovered = applyConfirmedRecovery(loaded.state);
+  const written = saveState(recovered, {
+    expectedHash: loaded.hash || null,
+    reason: CONFIRMED_RECOVERY_ID,
+  });
+  if (!written.ok) {
+    return { ...loaded, recovery: { ok: false, message: written.reason } };
+  }
+
+  clearRecoveryRequest();
+  return {
+    ...loaded,
+    state: recovered,
+    hash: written.hash,
+    meta: written.meta,
+    status: "ok",
+    blocked: false,
+    recovery: {
+      ok: true,
+      message: "Recovered Sep 13: complete · 85 kg · Codeforces 1481 · streak history preserved",
+    },
+  };
+}
 
 const CalIcon = () => (
   <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
@@ -62,7 +113,7 @@ const TABS = [
 
 export default function App() {
   const initialLoad = useRef(null);
-  if (initialLoad.current === null) initialLoad.current = loadState();
+  if (initialLoad.current === null) initialLoad.current = loadInitialState();
 
   const [state, setState] = useState(() => initialLoad.current.state);
   const [localSavePresent, setLocalSavePresent] = useState(() => hasLocalSave());
@@ -74,6 +125,7 @@ export default function App() {
   const [levelUp, setLevelUp] = useState(null);
   const [levelDown, setLevelDown] = useState(null);
   const [toast, setToast] = useState(null);
+  const [recoveryNotice] = useState(() => initialLoad.current.recovery || null);
   const toastTimer = useRef(null);
 
   const todayKey = useMemo(() => dateKey(new Date()), []);
@@ -577,6 +629,12 @@ export default function App() {
           </span>
         </div>
       </header>
+
+      {recoveryNotice && (
+        <div className="mn-recovery-notice" data-ok={recoveryNotice.ok} role="status" aria-live="polite">
+          {recoveryNotice.message}
+        </div>
+      )}
 
       {alerts.length > 0 && (
         <div className="mn-alerts">
