@@ -48,8 +48,19 @@ npm run build    # produces dist/
 
 ## Deploying
 
-Drag `dist/` (or the zip) onto [Netlify Drop](https://app.netlify.com/drop).
-Open the URL in Safari, then Share → Add to Home Screen.
+The production app is deployed by GitHub Actions to:
+
+**https://prabhav-patel-ops.github.io/monarch/**
+
+Every push to `main` runs the complete test suite, builds with the repository
+base path, checks the generated PWA paths, and publishes `dist/` to GitHub
+Pages. The deployment does not require a local Vite server or repository
+secrets.
+
+The core app, local save, recovery snapshots, and backup import/export all work
+on the static deployment. The optional System chat and meal-photo scan still
+require the Netlify function and `ANTHROPIC_API_KEY`; no browser-side secret is
+added for Pages.
 
 ## Turning on the System chat
 
