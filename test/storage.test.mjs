@@ -53,6 +53,17 @@ const stateWithXp = (xp) => {
   return state;
 };
 
+await t("a fresh hosted origin starts from the confirmed Sep 14 recovery state", () => {
+  storage.clear();
+  const loaded = loadState();
+  assert.equal(loaded.status, "seed");
+  assert.equal(loaded.state.days["2026-09-13"].quests.every((quest) => quest.done), true);
+  assert.deepEqual(loaded.state.body.weights.at(-1), { date: "2026-09-13", kg: 85 });
+  assert.deepEqual(loaded.state.cfHistory.at(-1), { date: "2026-09-13", rating: 1481 });
+  assert.deepEqual(loaded.state.streak, { current: 9, best: 9 });
+  assert.equal(storage.getItem(KEY), null, "the confirmed bundle remains a starting view until first save");
+});
+
 await t("monarch.v1 remains a plain backward-compatible state", () => {
   storage.clear();
   const result = saveState(stateWithXp(10));

@@ -5,6 +5,7 @@ import {
 } from "./data.js";
 import { STATS, resolveDetail, DEFAULT_SCHEDULE, dateKey, parseKey } from "./engine.js";
 import { SEED_SAVE } from "./seed-save.js";
+import { applyConfirmedRecovery } from "./confirmed-recovery.js";
 
 export const KEY = "monarch.v1";
 export const META_KEY = "monarch.v1.meta";
@@ -28,6 +29,10 @@ const MAX_LINEAGE = 100;
 export const TEMPLATES_VERSION = 5;
 
 const DIFFICULTY_KEYS = ["normal", "hard", "monarch"];
+
+function bundledState() {
+  return hydrate(applyConfirmedRecovery(SEED_SAVE));
+}
 
 export function emptyState() {
   const statXp = {};
@@ -374,14 +379,14 @@ function restoreLocalRecord(area, record) {
 export function loadState() {
   const area = storageArea();
   if (!area) {
-    return { state: hydrate(JSON.parse(JSON.stringify(SEED_SAVE))), status: "unavailable", blocked: false, meta: null };
+    return { state: bundledState(), status: "unavailable", blocked: false, meta: null };
   }
 
   let raw;
   try {
     raw = area.getItem(KEY);
   } catch (error) {
-    return { state: hydrate(JSON.parse(JSON.stringify(SEED_SAVE))), status: "unavailable", blocked: true, error, meta: null };
+    return { state: bundledState(), status: "unavailable", blocked: true, error, meta: null };
   }
 
   /* A device with no save of its own opens on the exported log. It is only a
@@ -394,7 +399,7 @@ export function loadState() {
     } catch {
       /* There was no complete first-write transaction to recover. */
     }
-    return { state: hydrate(JSON.parse(JSON.stringify(SEED_SAVE))), status: "seed", blocked: false, meta: null };
+    return { state: bundledState(), status: "seed", blocked: false, meta: null };
   }
 
   try {
@@ -427,7 +432,7 @@ export function loadState() {
       }
     }
     return {
-      state: hydrate(JSON.parse(JSON.stringify(SEED_SAVE))),
+      state: bundledState(),
       status: "corrupt",
       blocked: true,
       error,
