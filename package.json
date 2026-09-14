@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "test:pages": "node test/pages-build.test.mjs",
     "preview": "vite preview",
     "test": "node test/engine.test.mjs && node test/storage.test.mjs && npx esbuild test/render.test.mjs --bundle --platform=node --format=cjs --outfile=test/.render.bundle.cjs --loader:.js=jsx --jsx=automatic && node test/.render.bundle.cjs && node test/sim.mjs"
   },
