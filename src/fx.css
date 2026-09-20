@@ -1,0 +1,616 @@
+/* ===================================================================
+   fx.css — the game feel.
+
+   motion.css is the quiet layer: how a tab change reads, how a card
+   arrives. This is the loud one. It is everything that makes the board
+   answer like a game rather than a form — the touch answer, the press
+   physics, the sweep across a cleared quest, the live background.
+
+   All of it hangs off one switch: <html data-fx="full | lite | off">,
+   written by fx.js from the person's setting, forced to "off" when the
+   OS asks for reduced motion.
+
+     full  everything here
+     lite  the answers, none of the ambience: no drifting background,
+           no shake, no idle loops. For an old phone or a long battery.
+     off   nothing. The app is identical, just still.
+
+   Loaded last, so where it disagrees with motion.css it wins.
+
+   The compositor rule from motion.css still holds: per-frame, only
+   transform and opacity. The one exception is `background-position` on
+   the two idle shimmers, which run on elements the size of a
+   progress bar and stop when nothing is charging.
+   =================================================================== */
+
+/* ==================================================================
+   1. The overlay surfaces fx.js draws into
+   ================================================================== */
+
+.fx-canvas{
+  position:fixed;
+  inset:0;
+  z-index:110;
+  pointer-events:none;
+  contain:strict}
+
+.fx-layer{
+  position:fixed;
+  inset:0;
+  z-index:115;
+  pointer-events:none;
+  overflow:hidden}
+
+/* ---- a number leaving your finger ---- */
+
+.fx-float{
+  position:absolute;
+  transform:translate(-50%,-50%);
+  font-family:Rajdhani,sans-serif;
+  font-weight:700;
+  font-size:15px;
+  letter-spacing:.06em;
+  white-space:nowrap;
+  color:var(--rune-bright);
+  text-shadow:0 0 12px currentColor,0 1px 2px #000;
+  animation:fx-float 1.15s cubic-bezier(.16,.84,.3,1) both}
+
+.fx-float--big{
+  font-size:26px;
+  letter-spacing:.1em}
+
+@keyframes fx-float{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.6)}
+  16%{opacity:1;transform:translate(calc(-50% + var(--fx-dx,0px) * .3),-70%) scale(1.12)}
+  32%{transform:translate(calc(-50% + var(--fx-dx,0px) * .55),-90%) scale(1)}
+  100%{opacity:0;transform:translate(calc(-50% + var(--fx-dx,0px)),-230%) scale(.94)}
+}
+
+/* ---- the XP mote that flies to the rank glyph ----
+   Two nested transforms: the element carries the trip, the ::before
+   carries the wobble, so the arc reads as a thrown thing rather than
+   a linear tween. */
+
+.fx-orb{
+  position:absolute;
+  width:11px;
+  height:11px;
+  margin:-5.5px 0 0 -5.5px;
+  border-radius:50%;
+  background:var(--fx-c,#6fa8ff);
+  box-shadow:0 0 14px var(--fx-c,#6fa8ff),0 0 30px var(--fx-c,#6fa8ff);
+  animation:fx-orb-go .6s cubic-bezier(.5,0,.35,1) both}
+
+.fx-orb::before{
+  content:"";
+  position:absolute;
+  inset:-3px;
+  border-radius:50%;
+  border:1px solid var(--fx-c,#6fa8ff);
+  opacity:.55;
+  animation:fx-orb-wobble .6s ease-in-out both}
+
+@keyframes fx-orb-go{
+  0%{opacity:0;transform:translate(0,0) scale(.4)}
+  14%{opacity:1;transform:translate(calc(var(--fx-tx) * .06),calc(var(--fx-ty) * .06 - 26px)) scale(1.25)}
+  100%{opacity:1;transform:translate(var(--fx-tx),var(--fx-ty)) scale(.55)}
+}
+
+@keyframes fx-orb-wobble{
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.9);opacity:.1}
+}
+
+/* ---- full-screen wash ---- */
+
+.fx-flash{
+  position:absolute;
+  inset:0;
+  background:radial-gradient(120% 80% at 50% 40%,var(--fx-c,#6fa8ff),transparent 72%);
+  opacity:0;
+  animation:fx-flash var(--fx-ms,420ms) ease-out both}
+
+@keyframes fx-flash{
+  0%{opacity:0}
+  12%{opacity:.42}
+  100%{opacity:0}
+}
+
+/* ---- something landed on this element ---- */
+
+.fx-pulse{
+  animation:fx-pulse .6s cubic-bezier(.24,1.4,.36,1) both}
+
+@keyframes fx-pulse{
+  0%{transform:scale(1)}
+  28%{transform:scale(1.22)}
+  60%{transform:scale(.97)}
+  100%{transform:scale(1)}
+}
+
+/* ---- screen shake ---- */
+
+.fx-shaking{
+  animation:fx-shake .42s cubic-bezier(.36,.07,.19,.97) both}
+
+@keyframes fx-shake{
+  0%,100%{transform:translate3d(0,0,0)}
+  10%{transform:translate3d(calc(var(--fx-shake,8px) * -1),1px,0)}
+  22%{transform:translate3d(var(--fx-shake,8px),-2px,0)}
+  36%{transform:translate3d(calc(var(--fx-shake,8px) * -.7),2px,0)}
+  50%{transform:translate3d(calc(var(--fx-shake,8px) * .6),-1px,0)}
+  66%{transform:translate3d(calc(var(--fx-shake,8px) * -.35),1px,0)}
+  84%{transform:translate3d(calc(var(--fx-shake,8px) * .18),0,0)}
+}
+
+/* ==================================================================
+   2. The living background
+   Rendered by <Ambient /> and only ever transformed. Two soft blooms
+   on slow opposing drifts and one grid that creeps, so the board is
+   never quite still without anything ever asking for attention.
+   ================================================================== */
+
+/* Rendered inside `.app`, which is a stacking context of its own, so -1
+   puts it behind the board without escaping to sit behind the page. */
+.fx-ambient{
+  position:fixed;
+  inset:0;
+  z-index:-1;
+  pointer-events:none;
+  overflow:hidden;
+  contain:strict}
+
+.fx-ambient span{
+  position:absolute;
+  display:block;
+  border-radius:50%;
+  will-change:transform}
+
+.fx-bloom-1{
+  top:-30vh;
+  left:-25vw;
+  width:85vw;
+  height:85vw;
+  background:radial-gradient(circle,rgba(111,168,255,.13),transparent 66%)}
+
+.fx-bloom-2{
+  bottom:-35vh;
+  right:-30vw;
+  width:95vw;
+  height:95vw;
+  background:radial-gradient(circle,rgba(169,139,255,.10),transparent 68%)}
+
+.fx-bloom-3{
+  top:38%;
+  left:44%;
+  width:52vw;
+  height:52vw;
+  background:radial-gradient(circle,rgba(63,224,168,.055),transparent 70%)}
+
+/* The creeping rune grid. A tall tile translated by exactly one tile,
+   so the loop has no seam. */
+.fx-grid{
+  position:absolute;
+  inset:-60px 0 -60px 0;
+  border-radius:0 !important;
+  background-image:
+    repeating-linear-gradient(0deg,rgba(111,168,255,.045) 0 1px,transparent 1px 60px),
+    repeating-linear-gradient(90deg,rgba(111,168,255,.03) 0 1px,transparent 1px 60px);
+  opacity:.85}
+
+:root[data-fx="full"] .fx-bloom-1{animation:fx-drift-a 34s ease-in-out infinite alternate}
+:root[data-fx="full"] .fx-bloom-2{animation:fx-drift-b 41s ease-in-out infinite alternate}
+:root[data-fx="full"] .fx-bloom-3{animation:fx-drift-c 27s ease-in-out infinite alternate}
+:root[data-fx="full"] .fx-grid{animation:fx-creep 18s linear infinite}
+
+@keyframes fx-drift-a{
+  from{transform:translate3d(0,0,0) scale(1)}
+  to{transform:translate3d(9vw,7vh,0) scale(1.14)}
+}
+@keyframes fx-drift-b{
+  from{transform:translate3d(0,0,0) scale(1.08)}
+  to{transform:translate3d(-11vw,-6vh,0) scale(1)}
+}
+@keyframes fx-drift-c{
+  from{transform:translate3d(-6vw,4vh,0)}
+  to{transform:translate3d(7vw,-5vh,0)}
+}
+@keyframes fx-creep{
+  from{transform:translate3d(0,0,0)}
+  to{transform:translate3d(0,60px,0)}
+}
+
+/* ==================================================================
+   3. Press physics
+   Every tappable thing moves under a finger, and the ones that commit
+   something move more than the ones that navigate.
+   ================================================================== */
+
+:root:not([data-fx="off"]) button,
+:root:not([data-fx="off"]) .quest,
+:root:not([data-fx="off"]) .gate,
+:root:not([data-fx="off"]) .kv,
+:root:not([data-fx="off"]) .mn-cal-cell{
+  transition:transform .13s cubic-bezier(.3,.9,.4,1),
+             filter .13s ease,
+             background-color .16s ease,
+             border-color .16s ease}
+
+:root:not([data-fx="off"]) button:active{transform:scale(.92) translateY(1px)}
+:root:not([data-fx="off"]) .solid:active,
+:root:not([data-fx="off"]) .danger:active{transform:scale(.9) translateY(1px);filter:brightness(1.35)}
+:root:not([data-fx="off"]) .quest:active{transform:scale(.978)}
+:root:not([data-fx="off"]) .gate:active,
+:root:not([data-fx="off"]) .kv:active{transform:scale(.985)}
+:root:not([data-fx="off"]) .mn-cal-cell:active{transform:scale(.84)}
+:root:not([data-fx="off"]) .pill:active{transform:scale(.9)}
+
+/* A control that turned on says so with a small settle, once. */
+:root:not([data-fx="off"]) .pill[data-on="true"]{
+  animation:fx-settle .34s cubic-bezier(.3,1.5,.45,1) both}
+
+@keyframes fx-settle{
+  0%{transform:scale(.88)}
+  55%{transform:scale(1.07)}
+  100%{transform:scale(1)}
+}
+
+/* ==================================================================
+   4. The quest tick — the interaction that happens most
+   ================================================================== */
+
+/* The three positioning hooks below are the only structural rules in this
+   file, and they are ungated on purpose: they must hold in every fx state
+   so that switching effects off changes what moves and never what the
+   board measures. `overflow` clips the sweep at the row edge, which costs
+   the tick box's glow the last pixel or two of its falloff — the row's
+   11px of padding absorbs the rest. */
+.quest{position:relative;overflow:hidden}
+
+/* Light rakes across the row once when it is cleared. */
+.quest::after{
+  content:"";
+  position:absolute;
+  top:0;
+  bottom:0;
+  left:0;
+  width:45%;
+  pointer-events:none;
+  opacity:0;
+  background:linear-gradient(100deg,transparent,rgba(111,168,255,.30) 45%,rgba(184,216,255,.5) 55%,transparent);
+  transform:translate3d(-140%,0,0)}
+
+:root:not([data-fx="off"]) .quest[data-done="true"]::after{
+  animation:fx-sweep .62s cubic-bezier(.3,.7,.3,1) both}
+
+@keyframes fx-sweep{
+  0%{opacity:0;transform:translate3d(-140%,0,0)}
+  18%{opacity:1}
+  100%{opacity:0;transform:translate3d(300%,0,0)}
+}
+
+/* The box itself lands harder than motion.css asks for. */
+:root:not([data-fx="off"]) .quest[data-done="true"] .qbox{
+  animation:fx-box-pop .42s cubic-bezier(.28,1.7,.4,1) both}
+
+@keyframes fx-box-pop{
+  0%{transform:scale(.72) rotate(-8deg)}
+  50%{transform:scale(1.24) rotate(3deg)}
+  100%{transform:scale(1.06) rotate(0)}
+}
+
+/* The title strikes through left to right rather than appearing struck. */
+:root[data-fx="full"] .quest[data-done="true"] .qtitle{
+  animation:fx-strike .34s ease-out both;
+  text-decoration-thickness:1.5px}
+
+@keyframes fx-strike{
+  from{color:var(--rune-bright);text-decoration-color:transparent}
+  to{color:var(--text-faint);text-decoration-color:var(--rune-dim)}
+}
+
+/* ==================================================================
+   5. Bars that read as charging, not as filled rectangles
+   ================================================================== */
+
+.bar,.stat-bar{position:relative}
+
+.bar>i,.stat-bar>i{
+  position:relative;
+  transition:width .5s cubic-bezier(.16,.84,.3,1)}
+
+/* A hairline of brighter light rides the leading edge. */
+:root:not([data-fx="off"]) .bar>i::after{
+  content:"";
+  position:absolute;
+  top:0;
+  right:0;
+  bottom:0;
+  width:3px;
+  background:var(--rune-bright);
+  box-shadow:0 0 10px var(--rune-bright),0 0 20px var(--rune)}
+
+/* The bar itself has a slow travelling sheen. This is the one place
+   that animates a paint property, on an element seven pixels tall. */
+:root[data-fx="full"] .bar::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:linear-gradient(100deg,transparent 20%,rgba(184,216,255,.22) 50%,transparent 80%);
+  background-size:220% 100%;
+  animation:fx-sheen 3.6s linear infinite}
+
+@keyframes fx-sheen{
+  from{background-position:220% 0}
+  to{background-position:-120% 0}
+}
+
+/* ==================================================================
+   6. The tab bar
+   ================================================================== */
+
+:root:not([data-fx="off"]) .nav>button svg{
+  transition:transform .28s cubic-bezier(.3,1.5,.4,1),filter .24s ease}
+
+:root:not([data-fx="off"]) .nav>button[data-on="true"] svg{
+  transform:translateY(-2px) scale(1.16)}
+
+:root[data-fx="full"] .nav>button[data-on="true"] svg{
+  animation:fx-tab-pop .42s cubic-bezier(.26,1.6,.4,1) both}
+
+@keyframes fx-tab-pop{
+  0%{transform:translateY(0) scale(.85)}
+  55%{transform:translateY(-5px) scale(1.3)}
+  100%{transform:translateY(-2px) scale(1.16)}
+}
+
+:root:not([data-fx="off"]) .nav>button .tab-label{
+  transition:opacity .2s ease,transform .24s cubic-bezier(.3,1.3,.4,1);
+  opacity:.75}
+:root:not([data-fx="off"]) .nav>button[data-on="true"] .tab-label{
+  opacity:1;
+  transform:translateY(1px)}
+
+/* The pill gets a spring and a trailing glow. */
+:root[data-fx="full"] .mn-nav-pill{
+  transition:transform .42s cubic-bezier(.28,1.5,.36,1)}
+
+:root[data-fx="full"] .mn-nav-pill::before{
+  box-shadow:0 0 18px rgba(111,168,255,.35) inset,0 0 12px rgba(111,168,255,.25)}
+
+/* ==================================================================
+   7. Page arrival — a little depth, from the direction you moved
+   ================================================================== */
+
+:root[data-fx="full"] .mn-page{
+  animation:fx-page-in .38s cubic-bezier(.2,.9,.26,1) both;
+  transform-origin:50% 30%}
+
+@keyframes fx-page-in{
+  from{
+    opacity:0;
+    transform:perspective(900px)
+              translate3d(calc(var(--dir,1) * 34px),10px,-60px)
+              rotateY(calc(var(--dir,1) * -4deg))}
+  to{
+    opacity:1;
+    transform:perspective(900px) translate3d(0,0,0) rotateY(0)}
+}
+
+/* A shake has to beat the page entrance for the element it lands on, and
+   `animation` is one property — the later declaration wins outright, so a
+   plain `.fx-shaking` rule here would simply cancel the entrance and then
+   restart it when the class came off. Listing both keeps fx-page-in at
+   index 0 across the class change, which is how a browser decides an
+   animation is the same one and must not restart; fx-shake sits after it
+   and so owns `transform` while it runs. */
+:root[data-fx="full"] .mn-page.fx-shaking{
+  animation:
+    fx-page-in .38s cubic-bezier(.2,.9,.26,1) both,
+    fx-shake .42s cubic-bezier(.36,.07,.19,.97) both}
+
+/* Cards land one after another with a touch of tilt. */
+:root[data-fx="full"] .mn-page>*{
+  animation:fx-card-in .42s cubic-bezier(.2,.9,.28,1) both;
+  animation-delay:var(--mn-d,0ms)}
+
+@keyframes fx-card-in{
+  from{opacity:0;transform:perspective(800px) translate3d(0,16px,0) rotateX(7deg) scale(.985)}
+  to{opacity:1;transform:perspective(800px) translate3d(0,0,0) rotateX(0) scale(1)}
+}
+
+/* ==================================================================
+   8. The rank glyph — the app's heartbeat
+   ================================================================== */
+
+.rank-glyph{position:relative}
+
+:root[data-fx="full"] .topbar .rank-glyph{
+  animation:fx-breathe 5.5s ease-in-out infinite}
+
+@keyframes fx-breathe{
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.045)}
+}
+
+/* Same two-animation trick as the shake above: the breathe has to keep its
+   slot so it does not restart when the pulse class comes and goes, and the
+   pulse has to come after it to own `transform` for the half second an orb
+   is landing. */
+:root[data-fx="full"] .topbar .rank-glyph.fx-pulse{
+  animation:
+    fx-breathe 5.5s ease-in-out infinite,
+    fx-pulse .6s cubic-bezier(.24,1.4,.36,1) both}
+
+/* A ring that only exists while something is arriving at it. */
+.rank-glyph.fx-pulse::before{
+  content:"";
+  position:absolute;
+  inset:-6px;
+  border:1.5px solid currentColor;
+  border-radius:50%;
+  opacity:0;
+  animation:fx-halo .68s cubic-bezier(.2,.7,.3,1) both}
+
+@keyframes fx-halo{
+  from{opacity:.85;transform:scale(.6)}
+  to{opacity:0;transform:scale(1.9)}
+}
+
+/* ==================================================================
+   9. Combo — chain your ticks and the app notices
+   ================================================================== */
+
+.fx-combo{
+  position:fixed;
+  left:50%;
+  top:22%;
+  z-index:118;
+  pointer-events:none;
+  transform:translate(-50%,-50%);
+  font-family:Rajdhani,sans-serif;
+  font-weight:700;
+  font-size:34px;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:var(--gold);
+  text-shadow:0 0 22px rgba(255,194,75,.75),0 2px 6px #000;
+  animation:fx-combo .9s cubic-bezier(.2,1.5,.4,1) both}
+
+.fx-combo small{
+  display:block;
+  font-size:11px;
+  letter-spacing:.34em;
+  color:var(--rune-bright);
+  text-shadow:0 0 12px rgba(111,168,255,.7)}
+
+@keyframes fx-combo{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.5) rotate(-6deg)}
+  22%{opacity:1;transform:translate(-50%,-50%) scale(1.18) rotate(2deg)}
+  40%{transform:translate(-50%,-50%) scale(1) rotate(0)}
+  100%{opacity:0;transform:translate(-50%,-88%) scale(.94)}
+}
+
+/* ==================================================================
+   10. Toast and alerts
+   ================================================================== */
+
+:root[data-fx="full"] .toast{
+  animation:fx-toast .4s cubic-bezier(.24,1.5,.4,1) both}
+
+@keyframes fx-toast{
+  0%{opacity:0;transform:translate(-50%,18px) scale(.9)}
+  60%{opacity:1;transform:translate(-50%,-3px) scale(1.03)}
+  100%{opacity:1;transform:translate(-50%,0) scale(1)}
+}
+
+:root[data-fx="full"] .mn-alert{
+  transition:transform .16s cubic-bezier(.3,.9,.4,1),border-color .2s ease}
+
+/* ==================================================================
+   11. Level up / level down get more weight
+   ================================================================== */
+
+:root[data-fx="full"] .mn-levelup__glyph{
+  animation:fx-glyph .8s cubic-bezier(.2,1.6,.34,1) both}
+
+@keyframes fx-glyph{
+  0%{opacity:0;transform:scale(.2) rotate(-24deg)}
+  40%{opacity:1;transform:scale(1.35) rotate(6deg)}
+  62%{transform:scale(.94) rotate(-2deg)}
+  100%{transform:scale(1) rotate(0)}
+}
+
+:root[data-fx="full"] .mn-levelup h2{
+  animation:fx-title .6s cubic-bezier(.2,1.2,.3,1) .1s both}
+
+@keyframes fx-title{
+  from{opacity:0;letter-spacing:.5em;transform:translateY(8px)}
+  to{opacity:1;letter-spacing:normal;transform:translateY(0)}
+}
+
+/* ==================================================================
+   12. Inputs
+   ================================================================== */
+
+:root:not([data-fx="off"]) input:focus,
+:root:not([data-fx="off"]) select:focus,
+:root:not([data-fx="off"]) textarea:focus{
+  transform:translateY(-1px) scale(1.012)}
+
+/* ==================================================================
+   13. Creed
+   The line arrives a word at a time, which is the one place in the app
+   where slow is the point — it sets a reading pace instead of dropping
+   a paragraph on you.
+   ================================================================== */
+
+:root:not([data-fx="off"]) .creed-line span{
+  animation:fx-word .42s cubic-bezier(.2,.9,.3,1) both;
+  animation-delay:calc(var(--i,0) * 42ms + 90ms)}
+
+@keyframes fx-word{
+  from{opacity:0;transform:translateY(6px)}
+  to{opacity:1;transform:translateY(0)}
+}
+
+/* A raking light crosses the card once as the line lands. */
+:root[data-fx="full"] .creed-card::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:linear-gradient(105deg,transparent 30%,rgba(184,216,255,.13) 50%,transparent 70%);
+  background-size:260% 100%;
+  animation:fx-card-rake 1.5s cubic-bezier(.3,.7,.3,1) both}
+
+@keyframes fx-card-rake{
+  from{background-position:250% 0;opacity:0}
+  20%{opacity:1}
+  to{background-position:-140% 0;opacity:0}
+}
+
+:root[data-fx="full"] .creed-mark{
+  animation:fx-mark .8s cubic-bezier(.2,1.3,.3,1) both}
+
+@keyframes fx-mark{
+  from{opacity:0;transform:translateY(10px) scale(.8)}
+  to{opacity:1;transform:translateY(0) scale(1)}
+}
+
+/* The play glyph on the row that is currently open. */
+:root[data-fx="full"] .creed-clip[data-on="true"] .creed-clip-play{
+  animation:fx-pulse .6s cubic-bezier(.24,1.4,.36,1) both}
+
+:root:not([data-fx="off"]) .creed-clip-hit{
+  transition:transform .14s cubic-bezier(.3,.9,.4,1),opacity .16s ease}
+:root:not([data-fx="off"]) .creed-clip-hit:active{
+  transform:scale(.985) translateX(2px)}
+
+/* ==================================================================
+   14. The kill switch
+   `data-fx="off"` and reduced motion both land here. Nothing above is
+   load bearing, so switching it all off costs nothing but the motion.
+   ================================================================== */
+
+:root[data-fx="off"] .fx-ambient,
+:root[data-fx="off"] .fx-canvas,
+:root[data-fx="off"] .fx-layer{display:none}
+
+:root[data-fx="off"] .quest::after,
+:root[data-fx="off"] .bar::after,
+:root[data-fx="off"] .creed-card::after{content:none}
+
+@media (prefers-reduced-motion: reduce){
+  .fx-ambient,.fx-canvas,.fx-layer{display:none}
+  .quest::after,.bar::after,.creed-card::after{content:none}
+  .creed-line span,.creed-mark{animation:none;opacity:1;transform:none}
+  .fx-shaking{animation:none}
+  .rank-glyph,.mn-nav-pill,.nav>button svg,.pill[data-on="true"]{animation:none}
+  .quest[data-done="true"] .qbox,.quest[data-done="true"] .qtitle{animation:none}
+  .mn-page,.mn-page>*{animation:mn-fade .16s linear both}
+  button:active,.quest:active,.gate:active,.kv:active,
+  .mn-cal-cell:active,.pill:active,.solid:active,.danger:active,
+  input:focus,select:focus,textarea:focus{transform:none;filter:none}
+}

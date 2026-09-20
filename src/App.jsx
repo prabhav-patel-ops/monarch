@@ -18,6 +18,10 @@ import {
   sideXp, STATS, earnedBar,
 } from "./engine.js";
 import { Ico, chime } from "./ui.jsx";
+import {
+  mountFx, setFxLevel, setHaptics, haptic, lastPoint,
+  burst, ring, floater, orb, combo as fxCombo, celebrate, collapse,
+} from "./fx.js";
 import { quoteFor } from "./data.js";
 import Status from "./screens/Status.jsx";
 import Quests from "./screens/Quests.jsx";
@@ -33,6 +37,17 @@ import {
 } from "./confirmed-recovery.js";
 
 const MAX_BACKFILL = 7;
+
+function Ambient() {
+  return (
+    <div className="fx-ambient" aria-hidden="true">
+      <span className="fx-grid" />
+      <span className="fx-bloom-1" />
+      <span className="fx-bloom-2" />
+      <span className="fx-bloom-3" />
+    </div>
+  );
+}
 
 // structuredClone is missing on Safari before 15.4; JSON round-trip is enough
 // here because the state holds nothing but plain data.
@@ -237,25 +252,61 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /* ---- effects ---- */
+
+  useEffect(() => mountFx(), []);
+
+  useEffect(() => {
+    setFxLevel("full");
+    setHaptics(true);
+  }, []);
+
+  useEffect(() => { if (levelUp) celebrate(levelUp.rankUp ? "#ffc24b" : "#6fa8ff"); }, [levelUp]);
+  useEffect(() => { if (levelDown) collapse(); }, [levelDown]);
+
+  const stateRef = useRef(state);
+  useEffect(() => { stateRef.current = state; }, [state]);
+
+  const comboRef = useRef({ n: 0, at: 0 });
+  const questFx = useCallback((q) => {
+    if (typeof window === "undefined") return;
+    const x = lastPoint.x || window.innerWidth / 2;
+    const y = lastPoint.y || window.innerHeight / 2;
+    const colors = { STR: "#ff7b72", VIT: "#3fe0a8", INT: "#6fa8ff", DIS: "#ffc24b", CHA: "#c58cff" };
+    const color = colors[q.stat] || "#6fa8ff";
+    const now = Date.now();
+    const n = now - comboRef.current.at < 4000 ? comboRef.current.n + 1 : 1;
+    comboRef.current = { n, at: now };
+    burst(x, y, { count: 13 + n * 3, color, speed: 210 + n * 22, life: 0.62 });
+    ring(x, y, { from: 4, to: 44 + n * 6, color, life: 0.46 });
+    floater(x, y - 16, `+${q.xp} ${q.stat}`, { color });
+    orb(x, y, ".topbar .rank-glyph", { color });
+    haptic(n >= 3 ? [10, 26, 14] : 14);
+    fxCombo(n);
+  }, []);
+
   /* ---- quests ---- */
 
   const onToggle = useCallback(
     (dk, qid) => {
+      const before = stateRef.current?.days?.[dk]?.quests?.find((x) => x.id === qid);
+      const clearing = !!before && !before.done;
       commit((d) => {
         const day = d.days[dk];
         if (!day) return d;
         const q = day.quests.find((x) => x.id === qid);
         if (!q) return d;
         q.done = !q.done;
-        if (q.done) {
-          q.excused = false;
-          if (d.settings.soundOn) chime("quest");
-          flash(`${q.stat} +${q.xp}`);
-        }
+        if (q.done) q.excused = false;
         return d;
       });
+      if (clearing) {
+        if (stateRef.current?.settings?.soundOn) chime("quest");
+        questFx(before);
+        flash(`${before.stat} +${before.xp}`);
+      }
     },
-    [commit, flash]
+    [commit, flash, questFx]
   );
 
   const onExcuse = useCallback(
@@ -605,6 +656,7 @@ export default function App() {
 
   return (
     <div className="app">
+      <Ambient />
       <header className="topbar" data-scrolled={scrolled}>
         <div className="rank-glyph" data-rank={rank}>{rank}</div>
         <div className="topbar-meta">
