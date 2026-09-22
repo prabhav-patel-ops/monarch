@@ -445,14 +445,14 @@ t("every weekday is covered by a template", () => {
     delete broken.templatesVersion;
     broken.days["2026-08-31"] = {
       date: "2026-08-31",
-      quests: [{ id: "x", key: "cf", title: "Codeforces, one problem", detail: "", stat: "AGI", xp: 55, slot: 4, done: true }],
+      quests: [{ id: "x", key: "whood", title: "Whood product block", detail: "", stat: "AGI", xp: 55, slot: 4, done: true }],
       generated: true,
     };
     broken.templates[1].forEach((q) => (q.detail = undefined));
 
     const fixed = hydrate(JSON.parse(JSON.stringify(broken)));
     assert.equal(fixed.templatesVersion, TEMPLATES_VERSION, "migrated up to the current version");
-    assert.match(fixed.days["2026-08-31"].quests[0].detail, /1500–1700/);
+    assert.match(fixed.days["2026-08-31"].quests[0].detail, /focused hour/);
     assert.equal(fixed.days["2026-08-31"].quests[0].done, true, "progress must be preserved");
   });
 
