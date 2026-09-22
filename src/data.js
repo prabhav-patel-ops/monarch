@@ -143,14 +143,6 @@ const SATURDAY = [
   },
   { ...TEASERS, xp: 30 },
   PROJECTS_MATHS,
-  {
-    key: "deep_int",
-    title: "Deep options block",
-    detail: "Two hours uninterrupted. Derivation on blank paper, no book open.",
-    stat: "INT",
-    xp: 105,
-    slot: 8,
-  },
   SLEEP,
 ];
 
@@ -175,14 +167,6 @@ const SUNDAY = [
   },
   { ...TEASERS, xp: 30 },
   PROJECTS_MATHS,
-  {
-    key: "deep_int",
-    title: "Deep maths block",
-    detail: "Two hours. Shreve, or the Hull chapter you skimmed.",
-    stat: "INT",
-    xp: 95,
-    slot: 8,
-  },
   {
     key: "review",
     title: "Weekly review",
