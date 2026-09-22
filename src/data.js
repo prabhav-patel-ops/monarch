@@ -39,12 +39,12 @@ const GYM = {
   slot: 2,
 };
 
-const CF_WEEKDAY = {
-  key: "cf",
-  title: "Codeforces, one problem",
-  detail: "08:00 – 09:00. Rating band {cfBand}–{cfBandTop}. Timebox 45 minutes, then editorial and reimplement from scratch.",
+const WHOOD = {
+  key: "whood",
+  title: "Whood product block",
+  detail: "One focused hour on the product: build, refine, test, or ship.",
   stat: "AGI",
-  xp: 30,
+  xp: 70,
   slot: 4,
 };
 
@@ -82,9 +82,8 @@ const CAREER_DAILY = {
   slot: 7,
 };
 
-/* The weekend has the hours the week does not. Split in two because building
-   the thing and telling people it exists are different work, and the second
-   is the one that quietly never gets done. */
+/* Weekend career blocks are retained as data for older saved boards, but the
+   active routine now uses one combined Projects + Maths block. */
 const CAREER_PROJECT = {
   key: "career_project",
   title: "Live project block",
@@ -112,53 +111,45 @@ const HULL_EVE = {
   slot: 8,
 };
 
-const MATHS_NIGHT = {
-  key: "maths_night",
-  title: "Second study block",
-  detail: "20:30 – 21:30. {hullPages} pages, or the derivation you owe from this morning.",
+const PROJECTS_MATHS = {
+  key: "projects_maths",
+  title: "Projects and Maths",
+  detail: "One focused hour. Split it between product work and maths according to what needs to move.",
   stat: "INT",
-  xp: 60,
+  xp: 70,
   slot: 9,
 };
 
-const WEEKDAY = [WAKE, GYM, PROTEIN, CF_WEEKDAY, TEASERS, OFFICE, CAREER_DAILY, HULL_EVE, MATHS_NIGHT, SLEEP];
+const WEEKDAY = [WAKE, GYM, PROTEIN, WHOOD, TEASERS, OFFICE, CAREER_DAILY, HULL_EVE, PROJECTS_MATHS, SLEEP];
 
-/* Monday takes the extra block. It is the day with the most left in the tank
-   and the one that sets what the rest of the week believes is normal. */
-const STUDY_THIRD = {
-  key: "study_third",
-  title: "Third study block",
-  detail: "Monday only. The chapter you have been putting off, not the easy revision.",
-  stat: "INT",
-  xp: 55,
-  slot: 10,
-};
+/* Monday keeps the normal weekday board but drops the former third study
+   session. The combined Projects and Maths block is the only late study block. */
+const MONDAY = WEEKDAY;
 
-const MONDAY = [...WEEKDAY.slice(0, -1), STUDY_THIRD, SLEEP];
-
+/* Weekends keep training, recovery, commute, review, and options work, but
+   replace the scattered career/deep-study blocks with one sustainable
+   Projects and Maths session. */
 const SATURDAY = [
   WAKE,
   GYM,
   PROTEIN,
   {
-    key: "cf_virtual",
-    title: "Enter a virtual round",
-    detail: "Two hours, Div 2, rounds 700–900. Contest clock is its own skill.",
+    key: "whood_weekend",
+    title: "Whood product block",
+    detail: "One focused hour on the product: build, refine, test, or ship.",
     stat: "AGI",
-    xp: 55,
+    xp: 70,
     slot: 4,
   },
   { ...TEASERS, xp: 30 },
-  CAREER_PROJECT,
-  CAREER_ADMIN,
-  { ...CAREER_DAILY, slot: 8 },
+  PROJECTS_MATHS,
   {
     key: "deep_int",
     title: "Deep options block",
     detail: "Two hours uninterrupted. Derivation on blank paper, no book open.",
     stat: "INT",
     xp: 105,
-    slot: 9,
+    slot: 8,
   },
   SLEEP,
 ];
@@ -175,24 +166,22 @@ const SUNDAY = [
   },
   PROTEIN,
   {
-    key: "cf_upsolve",
-    title: "Upsolve yesterday's C and D",
-    detail: "While the problem is still in your head. This is where the rating actually comes from.",
+    key: "whood_upsolve",
+    title: "Whood product block",
+    detail: "One focused hour on the product: build, refine, test, or ship.",
     stat: "AGI",
-    xp: 35,
+    xp: 70,
     slot: 4,
   },
   { ...TEASERS, xp: 30 },
-  CAREER_PROJECT,
-  CAREER_ADMIN,
-  { ...CAREER_DAILY, slot: 8 },
+  PROJECTS_MATHS,
   {
     key: "deep_int",
     title: "Deep maths block",
     detail: "Two hours. Shreve, or the Hull chapter you skimmed.",
     stat: "INT",
     xp: 95,
-    slot: 9,
+    slot: 8,
   },
   {
     key: "review",
@@ -219,7 +208,8 @@ export const DEFAULT_TEMPLATES = {
 /* ---------- training split ----------
    Two shapes are supported per weekday.
 
-     items      legacy checklist. One string per line, tick it and move on.
+     items      legacy checklist. One string per line. Tick it and move on.
+
      exercises  logged mode. Every set records load and reps, and the
                 progression engine reads that history to set the next target.
 
@@ -371,8 +361,7 @@ export const SEED_SESSIONS = {
   },
 };
 
-/* ---------- food database (Indian vegetarian) ----------
-   base = one serving in the stated unit                        */
+/* ---------- food database (Indian vegetarian) ---------- */
 
 export const FOODS = [
   { name: "Roti / chapati", base: 1, unit: "piece", kcal: 104, protein: 3.1, carbs: 20, fat: 1.4 },
