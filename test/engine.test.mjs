@@ -137,9 +137,9 @@ t("weekday and Sunday templates differ, and Sunday pays for rest", () => {
   assert.ok(rest && rest.xp > 0, "resting is worth xp");
 });
 
-t("progression values are interpolated into quest detail", () => {
+t("routine details are generated for Whood, Hull and teasers", () => {
   const day = generateDay("2026-09-01", DEFAULT_TEMPLATES, { cfBand: 1650, hullPages: 21, teasers: 4 }, null);
-  assert.match(day.quests.find((q) => q.key === "cf").detail, /1650/);
+  assert.match(day.quests.find((q) => q.key === "whood").detail, /focused hour/);
   assert.match(day.quests.find((q) => q.key === "hull_eve").detail, /21/);
   assert.match(day.quests.find((q) => q.key === "teasers").detail, /4/);
 });
@@ -153,11 +153,11 @@ t("quest ids are unique within a day", () => {
 
 t("a missed quest not in today's template carries over at 1.5x", () => {
   const sat = generateDay("2026-09-05", DEFAULT_TEMPLATES, DEFAULT_PROGRESSION, null);
-  const virt = sat.quests.find((q) => q.key === "cf_virtual");
-  sat.quests.forEach((q) => (q.done = q.key !== "cf_virtual"));
+  const virt = sat.quests.find((q) => q.key === "gym");
+  sat.quests.forEach((q) => (q.done = q.key !== "gym"));
   const sun = generateDay("2026-09-06", DEFAULT_TEMPLATES, DEFAULT_PROGRESSION, sat);
-  const carried = sun.quests.find((q) => q.key === "cf_virtual");
-  assert.ok(carried, "missed virtual round carried into Sunday");
+  const carried = sun.quests.find((q) => q.key === "gym");
+  assert.ok(carried, "missed gym carried into Sunday");
   assert.equal(carried.penalty, true);
   assert.equal(carried.xp, Math.round(virt.xp * 1.5));
   assert.equal(carried.done, false);
@@ -175,7 +175,7 @@ t("a missed quest already in today's template is not duplicated", () => {
 t("excused quests do not carry over and are not penalised", () => {
   const mon = generateDay("2026-08-31", DEFAULT_TEMPLATES, DEFAULT_PROGRESSION, null);
   mon.quests.forEach((q) => { q.done = true; });
-  const v = mon.quests.find((q) => q.key === "cf");
+  const v = mon.quests.find((q) => q.key === "whood");
   v.done = false;
   v.excused = true;
   const owed = dayPenalty(mon, 1).byStat;
@@ -426,15 +426,15 @@ t("every weekday is covered by a template", () => {
     const s = emptyState();
     const cloned = JSON.parse(JSON.stringify(s));
     const mon = cloned.templates[1];
-    const cf = mon.find((q) => q.key === "cf");
-    assert.ok(cf.detail && cf.detail.includes("{cfBand}"));
+    const whood = mon.find((q) => q.key === "whood");
+    assert.ok(whood.detail && whood.detail.includes("focused hour"));
   });
 
-  t("generated weekday quests show band, teaser count and page target", () => {
+  t("generated weekday quests show the Whood block, teaser count and page target", () => {
     const s = emptyState();
     const day = generateDay("2026-08-31", s.templates, s.progression, null);
     const find = (k) => day.quests.find((q) => q.key === k);
-    assert.match(find("cf").detail, /1500–1700/);
+    assert.match(find("whood").detail, /focused hour/);
     assert.match(find("teasers").detail, /2 from Brainstellar/);
     assert.match(find("hull_eve").detail, /15 pages/);
     day.quests.forEach((q) => assert.ok(q.detail.length > 0, `${q.key} has no detail`));
@@ -540,7 +540,7 @@ t("every weekday is covered by a template", () => {
   /* The rule was about Codeforces against study, not about the AGI stat as a
      whole — AGI now also carries the live-project work. */
   t("study outweighs the Codeforces work on every template", () => {
-    const CF = ["cf", "cf_virtual", "cf_upsolve"];
+    const CF = ["whood", "whood_weekend", "whood_upsolve"];
     Object.entries(DEFAULT_TEMPLATES).forEach(([d, quests]) => {
       const study = quests.filter((q) => q.stat === "INT").reduce((a, q) => a + q.xp, 0);
       const cf = quests.filter((q) => CF.includes(q.key)).reduce((a, q) => a + q.xp, 0);
@@ -548,27 +548,18 @@ t("every weekday is covered by a template", () => {
     });
   });
 
-  t("the career work is on every day, and heaviest at the weekend", () => {
-    const CAREER = ["career_daily", "career_project", "career_admin"];
-    const spend = (d) => (DEFAULT_TEMPLATES[d] || [])
-      .filter((q) => CAREER.includes(q.key))
-      .reduce((a, q) => a + q.xp, 0);
-
+  t("Whood and Projects plus Maths are present throughout the week", () => {
     for (let d = 0; d <= 6; d++) {
-      assert.ok(spend(d) > 0, `day ${d} has career work`);
-      assert.ok(DEFAULT_TEMPLATES[d].some((q) => q.key === "career_daily"), `day ${d} has the daily block`);
+      const keys = (DEFAULT_TEMPLATES[d] || []).map((q) => q.key);
+      assert.ok(keys.some((k) => k.startsWith("whood")), `day ${d} has Whood`);
+      assert.ok(keys.includes("projects_maths"), `day ${d} has Projects and Maths`);
     }
-    assert.ok(spend(6) > spend(2) * 2, "Saturday carries far more than a weekday");
-    assert.ok(spend(0) > spend(2) * 2, "so does Sunday");
   });
 
-  t("Monday carries the extra study block and no other day does", () => {
-    const has = (d) => (DEFAULT_TEMPLATES[d] || []).some((q) => q.key === "study_third");
-    assert.ok(has(1), "Monday has it");
-    [0, 2, 3, 4, 5, 6].forEach((d) => assert.ok(!has(d), `day ${d} does not`));
-
-    const total = (d) => DEFAULT_TEMPLATES[d].reduce((a, q) => a + q.xp, 0);
-    assert.ok(total(1) > total(2), "which makes Monday the heaviest weekday");
+  t("Monday has one combined Projects and Maths block and no third study session", () => {
+    const monday = DEFAULT_TEMPLATES[1];
+    assert.equal(monday.filter((q) => q.key === "projects_maths").length, 1);
+    assert.ok(!monday.some((q) => q.key === "study_third"));
   });
 
   t("migration renames Night block without touching penalty quests", () => {
