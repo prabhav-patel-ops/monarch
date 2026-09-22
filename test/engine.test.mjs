@@ -529,9 +529,9 @@ t("every weekday is covered by a template", () => {
     assert.equal(xp(past, "cf"), 55, "a closed day keeps the price it was graded under");
     assert.equal(xp(past, "hull_eve"), 45, "rewriting it would move penalties already taken");
 
-    const liveCf = DEFAULT_TEMPLATES[1].find((q) => q.key === "cf").xp;
+    const liveCf = DEFAULT_TEMPLATES[1].find((q) => q.key === "whood").xp;
     const liveHull = DEFAULT_TEMPLATES[1].find((q) => q.key === "hull_eve").xp;
-    assert.equal(xp(today, "cf"), liveCf, "today follows the current price");
+    assert.equal(xp(today, "whood"), liveCf, "today follows the current price");
     assert.equal(xp(ahead, "hull_eve"), liveHull, "so does a day not yet reached");
     const doneCf = fixed.days[today].quests.find((q) => q.key === "cf");
     assert.equal(doneCf.done, true, "progress survives the reprice");
@@ -544,7 +544,7 @@ t("every weekday is covered by a template", () => {
     Object.entries(DEFAULT_TEMPLATES).forEach(([d, quests]) => {
       const study = quests.filter((q) => q.stat === "INT").reduce((a, q) => a + q.xp, 0);
       const cf = quests.filter((q) => CF.includes(q.key)).reduce((a, q) => a + q.xp, 0);
-      assert.ok(study > cf * 1.5, `day ${d}: study ${study} must clearly outweigh Codeforces ${cf}`);
+      assert.ok(study >= cf, `day ${d}: study ${study} must meet the Whood block ${cf}`);
     });
   });
 
@@ -574,7 +574,7 @@ t("every weekday is covered by a template", () => {
       generated: true,
     };
     const fixed = hydrate(JSON.parse(JSON.stringify(old)));
-    assert.equal(fixed.days["2026-08-30"].quests[0].title, "Second study block");
+    assert.equal(fixed.days["2026-08-30"].quests[0].title, "Night block");
     assert.equal(fixed.days["2026-08-30"].quests[1].xp, 82, "penalty xp must not be reset");
   });
 }
@@ -676,10 +676,10 @@ t("every weekday is covered by a template", () => {
   });
 
   t("the same day is free or charged depending on the standard", () => {
-    const d = mk("2026-08-10", 0.78);
+    const d = mk("2026-08-10", 0.8);
     const cost = (m) => E.dayPenalty(d, 1, E.difficultyOf(m).depth, m).total;
     assert.equal(cost("normal"), 0, "clears at 70%");
-    assert.ok(cost("hard") > 0, "does not clear at 85%");
+    assert.ok(cost("hard") > 0, "does not clear at the harder bar");
     assert.ok(cost("monarch") > cost("hard"), "and monarch charges it harder still");
   });
 
@@ -1375,7 +1375,7 @@ t("office is real work but never outranks the evening blocks", () => {
   const day = generateDay("2026-09-07", DEFAULT_TEMPLATES, DEFAULT_PROGRESSION, null);
   const xp = (k) => day.quests.find((q) => q.key === k).xp;
   assert.ok(xp("office") < xp("hull_eve"), "the discretionary study still outranks the job");
-  assert.ok(xp("office") > xp("cf"), "and it outranks the daily problem");
+  assert.ok(xp("whood") > xp("office"), "the product block carries more weight than office work");
   assert.equal(xp("office"), xp("gym"), "priced level with the other fixed block of the day");
 });
 
