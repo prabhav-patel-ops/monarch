@@ -542,11 +542,12 @@ t("every weekday is covered by a template", () => {
       const keys = quests.map((q) => q.key);
       assert.ok(keys.some((k) => k.startsWith("whood")), `day ${d} has Whood`);
       assert.ok(!keys.some((k) => k === "cf" || k.startsWith("cf_")), `day ${d} has no compulsory Codeforces`);
-      assert.ok(!keys.includes("projects_maths"), `day ${d} has no placeholder block`);
+      assert.ok(keys.includes("projects_maths"), `day ${d} has Projects and Maths`);
     });
   });
 
-  t("Monday has no third study session", () => {
+  t("Monday has the Projects and Maths replacement block", () => {
+    assert.equal(DEFAULT_TEMPLATES[1].filter((q) => q.key === "projects_maths").length, 1);
     assert.ok(!DEFAULT_TEMPLATES[1].some((q) => q.key === "study_third"));
   });
 
