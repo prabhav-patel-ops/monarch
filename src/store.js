@@ -26,7 +26,7 @@ const MAX_LINEAGE = 100;
 /* Bump when DEFAULT_TEMPLATES changes shape OR when quest XP is repriced.
    Saved templates below this are replaced on load, because an old save can
    carry stale quest copy and stale prices. */
-export const TEMPLATES_VERSION = 7;
+export const TEMPLATES_VERSION = 8;
 
 const DIFFICULTY_KEYS = ["normal", "hard", "monarch"];
 
