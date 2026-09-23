@@ -111,16 +111,7 @@ const HULL_EVE = {
   slot: 8,
 };
 
-const PROJECTS_MATHS = {
-  key: "projects_maths",
-  title: "Projects and Maths",
-  detail: "One focused hour. Split it between product work and maths according to what needs to move.",
-  stat: "INT",
-  xp: 70,
-  slot: 9,
-};
-
-const WEEKDAY = [WAKE, GYM, PROTEIN, WHOOD, TEASERS, OFFICE, CAREER_DAILY, HULL_EVE, PROJECTS_MATHS, SLEEP];
+const WEEKDAY = [WAKE, GYM, PROTEIN, WHOOD, TEASERS, OFFICE, CAREER_DAILY, HULL_EVE, SLEEP];
 
 /* Monday keeps the normal weekday board but drops the former third study
    session. The combined Projects and Maths block is the only late study block. */
