@@ -180,6 +180,14 @@ export function hydrate(parsed) {
     const today = dateKey(new Date());
 
     Object.entries(merged.days || {}).forEach(([dk, day]) => {
+      /* Open boards must follow the current routine. Closed days retain their
+         historical grading, while obsolete compulsory quests disappear from
+         today and future boards. Optional Codeforces contests are side quests
+         and are therefore unaffected. */
+      if (dk >= today) {
+        const obsolete = new Set(["cf", "cf_virtual", "cf_upsolve", "projects_maths", "study_third", "maths_night"]);
+        day.quests = (day.quests || []).filter((q) => q.penalty || !obsolete.has(q.key));
+      }
       (day.quests || []).forEach((q) => {
         const t = byKey.get(q.key);
         if (!t) return;
