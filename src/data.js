@@ -133,7 +133,6 @@ const SATURDAY = [
     slot: 4,
   },
   { ...TEASERS, xp: 30 },
-  PROJECTS_MATHS,
   SLEEP,
 ];
 
