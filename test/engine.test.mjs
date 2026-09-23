@@ -533,33 +533,21 @@ t("every weekday is covered by a template", () => {
     const liveHull = DEFAULT_TEMPLATES[1].find((q) => q.key === "hull_eve").xp;
     assert.equal(xp(today, "whood"), liveCf, "today follows the current price");
     assert.equal(xp(ahead, "hull_eve"), liveHull, "so does a day not yet reached");
-    const doneCf = fixed.days[today].quests.find((q) => q.key === "cf");
-    assert.equal(doneCf.done, true, "progress survives the reprice");
+    const doneWake = fixed.days[today].quests.find((q) => q.key === "wake");
+    assert.equal(doneWake.done, true, "progress survives the reprice");
   });
 
-  /* The rule was about Codeforces against study, not about the AGI stat as a
-     whole — AGI now also carries the live-project work. */
-  t("study outweighs the Codeforces work on every template", () => {
-    const CF = ["whood", "whood_weekend", "whood_upsolve"];
+  t("Whood is optional to Codeforces and the placeholder block is absent", () => {
     Object.entries(DEFAULT_TEMPLATES).forEach(([d, quests]) => {
-      const study = quests.filter((q) => q.stat === "INT").reduce((a, q) => a + q.xp, 0);
-      const cf = quests.filter((q) => CF.includes(q.key)).reduce((a, q) => a + q.xp, 0);
-      assert.ok(study >= cf, `day ${d}: study ${study} must meet the Whood block ${cf}`);
+      const keys = quests.map((q) => q.key);
+      assert.ok(keys.some((k) => k.startsWith("whood")), `day ${d} has Whood`);
+      assert.ok(!keys.some((k) => k === "cf" || k.startsWith("cf_")), `day ${d} has no compulsory Codeforces`);
+      assert.ok(!keys.includes("projects_maths"), `day ${d} has no placeholder block`);
     });
   });
 
-  t("Whood and Projects plus Maths are present throughout the week", () => {
-    for (let d = 0; d <= 6; d++) {
-      const keys = (DEFAULT_TEMPLATES[d] || []).map((q) => q.key);
-      assert.ok(keys.some((k) => k.startsWith("whood")), `day ${d} has Whood`);
-      assert.ok(keys.includes("projects_maths"), `day ${d} has Projects and Maths`);
-    }
-  });
-
-  t("Monday has one combined Projects and Maths block and no third study session", () => {
-    const monday = DEFAULT_TEMPLATES[1];
-    assert.equal(monday.filter((q) => q.key === "projects_maths").length, 1);
-    assert.ok(!monday.some((q) => q.key === "study_third"));
+  t("Monday has no third study session", () => {
+    assert.ok(!DEFAULT_TEMPLATES[1].some((q) => q.key === "study_third"));
   });
 
   t("migration renames Night block without touching penalty quests", () => {
