@@ -166,6 +166,7 @@ const SUNDAY = [
     slot: 4,
   },
   { ...TEASERS, xp: 30 },
+  PROJECTS_MATHS,
 
   {
     key: "review",
