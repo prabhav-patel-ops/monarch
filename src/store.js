@@ -185,7 +185,7 @@ export function hydrate(parsed) {
          today and future boards. Optional Codeforces contests are side quests
          and are therefore unaffected. */
       if (dk >= today) {
-        const obsolete = new Set(["cf", "cf_virtual", "cf_upsolve", "projects_maths", "study_third", "maths_night"]);
+        const obsolete = new Set(["cf", "cf_virtual", "cf_upsolve", "study_third", "maths_night"]);
         day.quests = (day.quests || []).filter((q) => q.penalty || !obsolete.has(q.key));
       }
       (day.quests || []).forEach((q) => {
