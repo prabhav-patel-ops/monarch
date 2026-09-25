@@ -186,8 +186,11 @@ export default function App() {
         if (raised.length) draft.lastRatchet = { date: todayKey, items: raised };
 
         const totals = recomputeTotals(draft.days, draft.shadows, todayKey, draft.settings.difficulty);
-        draft.totalXp = totals.totalXp;
-        draft.statXp = totals.statXp;
+        const gateXp = (draft.gates || [])
+          .filter((g) => g.cleared)
+          .reduce((sum, g) => sum + (g.rewardXp || GATE_REWARDS[g.rank] || 0), 0);
+        draft.totalXp = totals.totalXp + gateXp;
+        draft.statXp = { ...totals.statXp, INT: (totals.statXp.INT || 0) + gateXp };
         draft.streak = computeStreak(draft.days, todayKey);
 
         const lvl = levelFromTotalXp(draft.totalXp).level;
@@ -328,7 +331,11 @@ export default function App() {
   const onClearGate = useCallback((id) => {
     commit((d) => {
       const g = d.gates.find((x) => x.id === id);
-      if (g) { g.cleared = true; g.clearedOn = todayKey; }
+      if (g && !g.cleared) {
+        g.cleared = true;
+        g.clearedOn = todayKey;
+        g.rewardXp = GATE_REWARDS[g.rank] || GATE_REWARDS.E;
+      }
       return d;
     });
     flash("Gate cleared");
