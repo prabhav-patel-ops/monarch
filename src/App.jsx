@@ -126,6 +126,8 @@ const TABS = [
   { id: "system", label: "System", icon: Ico.system },
 ];
 
+const GATE_REWARDS = { E: 50, D: 100, C: 250, B: 500, A: 1000, S: 2000 };
+
 export default function App() {
   const initialLoad = useRef(null);
   if (initialLoad.current === null) initialLoad.current = loadInitialState();
