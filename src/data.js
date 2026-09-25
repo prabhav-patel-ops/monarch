@@ -50,8 +50,8 @@ const WHOOD = {
 
 const PROJECTS_MATHS = {
   key: "projects_maths",
-  title: "Projects and Maths",
-  detail: "One focused hour. Split it between product work and maths according to what needs to move.",
+  title: "Projects / Maths / Codeforces",
+  detail: "One focused hour. Choose Projects, Maths, or Codeforces according to what needs to move today.",
   stat: "INT",
   xp: 70,
   slot: 9,
