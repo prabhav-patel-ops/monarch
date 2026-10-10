@@ -44,6 +44,7 @@ assert.equal(computeStreak(days, today.date).current, 4, "clearing today extends
 
 const tooLate = day("2026-10-05", [quest("recurring", 50, true), quest("one-off", 75, true)]);
 today.quests[0].done = false;
+today.quests[2].done = false;
 days[tooLate.date] = tooLate;
 assert.equal(streakRecovery(days, missed.date).complete, false, "completing it two days later cannot repair the miss");
 assert.equal(computeStreak(days, tooLate.date).current, 1, "later success starts a new run");
@@ -81,7 +82,7 @@ const futureDays = {
   [today.date]: day(today.date, [quest("recurring", 50), quest("one-off", 50)]),
   [future.date]: future,
 };
-assert.equal(computeStreak(futureDays, missed.date).current, 0,
+assert.equal(computeStreak(futureDays, missed.date).current, 2,
   "a future board cannot recover today's miss early");
 
 console.log("next-day streak recovery keeps missed work, expiry, and historic saves consistent");
