@@ -158,14 +158,20 @@ export function generateDay(dk, templatesByWeekday, prog, prevDay, bar) {
   if (prevDay && Array.isArray(prevDay.quests)) {
     const missed = prevDay.quests.filter((q) => !q.done && !q.excused);
     missed.forEach((q, i) => {
-      // Only carry it forward if today does not already contain the same key.
-      if (quests.some((x) => x.key === q.key)) return;
+      // A recurring quest is already on today's board. Completing that one
+      // covers the missed task without showing two identical rows.
+      const scheduled = quests.find((x) => x.key === q.key);
+      if (scheduled) {
+        scheduled.recoveryFor = prevDay.date;
+        return;
+      }
       quests.push({
         ...q,
         id: `${dk}#p${i}#${q.key}`,
         xp: Math.round(q.xp * 1.5),
         done: false,
         penalty: true,
+        recoveryFor: prevDay.date,
         slot: "penalty",
       });
     });
@@ -422,27 +428,53 @@ export function applyRatchet(days, endKey, prog, settings = {}) {
 
 /* ---------- streak ---------- */
 
-export function computeStreak(days, todayKey) {
+/**
+ * A day below its clear bar can keep its place in the streak only when every
+ * unexcused missed quest is completed on the very next day's board. Recurring
+ * quests use their existing row; other misses appear as penalty quests.
+ * Historical saves without recoveryFor still work by matching the quest key.
+ * This repairs the streak only: the original day keeps its grade and XP cost.
+ */
+export function streakRecovery(days, missedKey, mode) {
+  const missedDay = days[missedKey];
+  const nextDay = days[shiftKey(missedKey, 1)];
+  const empty = { eligible: false, total: 0, done: 0, complete: false };
+  if (!missedDay?.generated || !nextDay?.generated || isDayCleared(missedDay, mode)) return empty;
+
+  const keys = [...new Set(missedDay.quests
+    .filter((q) => !q.done && !q.excused)
+    .map((q) => q.key)
+    .filter(Boolean))];
+  if (!keys.length) return empty;
+
+  const done = keys.filter((key) => nextDay.quests.some((q) =>
+    q.key === key && q.done && !q.excused &&
+    (!q.recoveryFor || q.recoveryFor === missedKey)
+  )).length;
+  return { eligible: true, total: keys.length, done, complete: done === keys.length };
+}
+
+export function computeStreak(days, todayKey, mode) {
+  const counts = (key) => isDayCleared(days[key], mode) || streakRecovery(days, key, mode).complete;
   let current = 0;
-  // today only counts once cleared; yesterday backwards always counts
+  // Today counts only after clearing; next-day recovery is never granted early.
   for (let i = 0; i < 400; i++) {
     const k = shiftKey(todayKey, -i);
-    const d = days[k];
-    if (!d) {
+    if (!days[k]) {
       if (i === 0) continue;
       break;
     }
-    if (isDayCleared(d)) current += 1;
+    if (counts(k)) current += 1;
     else if (i === 0) continue; // today still in progress
     else break;
   }
 
   let best = 0;
   let run = 0;
-  const keys = Object.keys(days).sort();
+  const keys = Object.keys(days).filter((k) => k <= todayKey).sort();
   let prev = null;
   keys.forEach((k) => {
-    const cleared = isDayCleared(days[k]);
+    const cleared = counts(k);
     if (cleared && prev && daysBetween(prev, k) === 1) run += 1;
     else if (cleared) run = 1;
     else run = 0;
