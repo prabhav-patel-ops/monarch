@@ -224,13 +224,13 @@ t("a mostly empty day does not clear", () => {
   assert.equal(isDayCleared(day), false);
 });
 
-t("streak counts back from today and stops at the first miss", () => {
+t("a missed day recovered on the next day keeps its streak", () => {
   const days = buildDays("2026-08-25", 7, (d, i) => {
     d.quests.forEach((q) => (q.done = i !== 2));
   });
   const s = computeStreak(days, "2026-08-31");
-  assert.equal(s.current, 4, "25,26 then miss on 27, then 28-31 is four");
-  assert.ok(s.best >= 4);
+  assert.equal(s.current, 7, "the work missed on 27 is completed on 28, so 25-31 stays continuous");
+  assert.ok(s.best >= 7);
 });
 
 t("today still in progress does not break the streak", () => {
@@ -529,8 +529,8 @@ t("every weekday is covered by a template", () => {
     assert.equal(xp(past, "cf"), 55, "a closed day keeps the price it was graded under");
     assert.equal(xp(past, "hull_eve"), 45, "rewriting it would move penalties already taken");
 
-    const liveCf = DEFAULT_TEMPLATES[1].find((q) => q.key === "whood").xp;
-    const liveHull = DEFAULT_TEMPLATES[1].find((q) => q.key === "hull_eve").xp;
+    const liveCf = DEFAULT_TEMPLATES[parseKey(today).getDay()].find((q) => q.key === "whood").xp;
+    const liveHull = DEFAULT_TEMPLATES[parseKey(ahead).getDay()].find((q) => q.key === "hull_eve").xp;
     assert.equal(xp(today, "whood"), liveCf, "today follows the current price");
     assert.equal(xp(ahead, "hull_eve"), liveHull, "so does a day not yet reached");
     const doneWake = fixed.days[today].quests.find((q) => q.key === "wake");
