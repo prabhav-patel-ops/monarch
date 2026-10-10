@@ -455,7 +455,7 @@ export function streakRecovery(days, missedKey, mode) {
 }
 
 export function computeStreak(days, todayKey, mode) {
-  const counts = (key) => isDayCleared(days[key], mode) || streakRecovery(days, key, mode).complete;
+  const counts = (key) => isDayCleared(days[key], mode) || (key < todayKey && streakRecovery(days, key, mode).complete);
   let current = 0;
   // Today counts only after clearing; next-day recovery is never granted early.
   for (let i = 0; i < 400; i++) {
