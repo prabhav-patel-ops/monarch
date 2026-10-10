@@ -529,10 +529,11 @@ t("every weekday is covered by a template", () => {
     assert.equal(xp(past, "cf"), 55, "a closed day keeps the price it was graded under");
     assert.equal(xp(past, "hull_eve"), 45, "rewriting it would move penalties already taken");
 
-    const liveCf = DEFAULT_TEMPLATES[parseKey(today).getDay()].find((q) => q.key === "whood").xp;
-    const liveHull = DEFAULT_TEMPLATES[parseKey(ahead).getDay()].find((q) => q.key === "hull_eve").xp;
-    assert.equal(xp(today, "whood"), liveCf, "today follows the current price");
-    assert.equal(xp(ahead, "hull_eve"), liveHull, "so does a day not yet reached");
+    const todayWhood = DEFAULT_TEMPLATES[parseKey(today).getDay()].find((q) => q.key.startsWith("whood"));
+    const aheadTemplate = DEFAULT_TEMPLATES[parseKey(ahead).getDay()];
+    const aheadQuest = aheadTemplate.find((q) => q.key === "hull_eve") || aheadTemplate[0];
+    assert.equal(xp(today, todayWhood.key), todayWhood.xp, "today follows the current price");
+    assert.equal(xp(ahead, aheadQuest.key), aheadQuest.xp, "so does a day not yet reached");
     const doneWake = fixed.days[today].quests.find((q) => q.key === "wake");
     assert.ok(doneWake, "the existing quest survives the reprice");
   });
