@@ -34,6 +34,16 @@ export function shiftKey(k, days) {
   return dateKey(d);
 }
 
+/** Keep the selected log date inside the month being opened. */
+export function shiftMonthSelection(cursor, pickedKey, months) {
+  const first = new Date(cursor.y, cursor.m + months, 1);
+  const y = first.getFullYear();
+  const m = first.getMonth();
+  const lastDay = new Date(y, m + 1, 0).getDate();
+  const selectedDay = Math.min(parseKey(pickedKey).getDate(), lastDay);
+  return { cursor: { y, m }, picked: dateKey(new Date(y, m, selectedDay)) };
+}
+
 export function daysBetween(a, b) {
   return Math.round((parseKey(b) - parseKey(a)) / 86400000);
 }
