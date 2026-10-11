@@ -183,9 +183,16 @@ export default function Quests({ state, todayKey, onToggle, onExcuse, onAddExtra
   const owedTotal = charge.total;
   const previousKey = shiftKey(viewKey, -1);
   const recovery = streakRecovery(state.days, previousKey, mode);
-  const recoveryKeys = new Set(recovery.eligible
+  const missedKeys = new Set(recovery.eligible
     ? state.days[previousKey].quests.filter((q) => !q.done && !q.excused).map((q) => q.key)
     : []);
+  const carriedForYesterday = day.quests.filter((q) =>
+    q.penalty && missedKeys.has(q.key) &&
+    (!q.recoveryFor || q.recoveryFor === previousKey)
+  );
+  const recoveryKeys = new Set(carriedForYesterday.length
+    ? carriedForYesterday.map((q) => q.key)
+    : missedKeys);
 
   const QuestRow = ({ q }) => (
     <div
@@ -259,7 +266,9 @@ export default function Quests({ state, todayKey, onToggle, onExcuse, onAddExtra
           <p className="faint" style={{ margin: 0 }}>
             {recovery.complete
               ? "Yesterday's missed work is complete. Its place in your streak is restored. Clear today's board to extend the run."
-              : "Finish every task marked Streak catch-up today to keep yesterday in your streak. Recurring tasks count once; you won't see duplicate rows."}
+              : carriedForYesterday.length
+                ? "Finish every carried Penalty quest from yesterday today to keep that day in your streak."
+                : "No separate Penalty quests were carried. Finish the repeated missed tasks today to keep yesterday in your streak."}
             {" "}Yesterday's XP charge and grade remain unchanged.
           </p>
         </Win>
