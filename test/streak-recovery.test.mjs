@@ -85,4 +85,20 @@ const futureDays = {
 assert.equal(computeStreak(futureDays, missed.date).current, 2,
   "a future board cannot recover today's miss early");
 
+const oct8 = day("2026-10-08", [quest("routine", 100, true)]);
+const oct9 = day("2026-10-09", [quest("make-up", 100)]);
+const oct10 = day("2026-10-10", [
+  quest("make-up", 150, true, { penalty: true }),
+  quest("new-work", 300),
+]);
+const boundaryDays = {
+  [oct8.date]: oct8,
+  [oct9.date]: oct9,
+  [oct10.date]: oct10,
+};
+assert.equal(streakRecovery(boundaryDays, oct9.date).complete, true,
+  "an Oct 9 miss is recoverable by work completed on Oct 10");
+assert.equal(computeStreak(boundaryDays, oct10.date).current, 2,
+  "Oct 9 joins the earlier run even while Oct 10 is unfinished");
+
 console.log("next-day streak recovery keeps missed work, expiry, and historic saves consistent");
