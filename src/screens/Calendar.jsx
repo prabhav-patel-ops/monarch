@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import { Win } from "../ui.jsx";
 import {
   monthCells, monthSummary, GRADE_TONE, buildSchedule, journeyEvents,
-  seasonProgress, parseKey, shiftKey, daysBetween, levelFromTotalXp, rankFromLevel, streakRecovery,
+  seasonProgress, parseKey, shiftKey, shiftMonthSelection, daysBetween, levelFromTotalXp, rankFromLevel, streakRecovery,
 } from "../engine.js";
 import { defaultSeason, SEASON_LENGTH, SEASON_GOAL_TYPES } from "../data.js";
 import { dailyRemindersIcs, gatesIcs, scheduleIcs, downloadIcs } from "../calendar.js";
@@ -67,8 +67,9 @@ function Month({ state, todayKey, flash, onJournal }) {
   const summary = useMemo(() => monthSummary(grid.cells), [grid]);
 
   const step = (n) => {
-    const d = new Date(cursor.y, cursor.m + n, 1);
-    setCursor({ y: d.getFullYear(), m: d.getMonth() });
+    const next = shiftMonthSelection(cursor, picked, n);
+    setCursor(next.cursor);
+    setPicked(next.picked);
   };
 
   const day = state.days[picked];
@@ -124,7 +125,7 @@ function Month({ state, todayKey, flash, onJournal }) {
       </Win>
 
       <Win title={picked} right={cell ? GRADE_LABEL[cell.grade] : ""}>
-        {!day || !day.generated ? (
+        {!day || !day.generated || !cell ? (
           <div className="empty">Nothing was logged on this day.</div>
         ) : (
           <>
