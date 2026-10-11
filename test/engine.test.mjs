@@ -224,13 +224,13 @@ t("a mostly empty day does not clear", () => {
   assert.equal(isDayCleared(day), false);
 });
 
-t("a missed day recovered on the next day keeps its streak", () => {
+t("streak counts back from today and stops at the first historical miss", () => {
   const days = buildDays("2026-08-25", 7, (d, i) => {
     d.quests.forEach((q) => (q.done = i !== 2));
   });
   const s = computeStreak(days, "2026-08-31");
-  assert.equal(s.current, 7, "the work missed on 27 is completed on 28, so 25-31 stays continuous");
-  assert.ok(s.best >= 7);
+  assert.equal(s.current, 4, "the rollout must not rewrite older confirmed streak history");
+  assert.ok(s.best >= 4);
 });
 
 t("today still in progress does not break the streak", () => {
