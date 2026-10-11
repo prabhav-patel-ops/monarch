@@ -3,7 +3,7 @@ import {
   xpForLevel, levelFromTotalXp, rankFromLevel, nextRankAt, statTier,
   shadowMultiplier, generateDay, dayAvailableXp, dayEarnedXp, isDayCleared,
   dayPenalty, gradeDay, escalationAt, PENALTY_DEPTH, missFlags, applyRatchet, computeStreak, recomputeTotals,
-  macroTotals, scaleFood, smooth, dateKey, parseKey, shiftKey, daysBetween,
+  macroTotals, scaleFood, smooth, dateKey, parseKey, shiftKey, shiftMonthSelection, daysBetween,
   gateStatus, sortGates, STATS,
   suggestNext, sessionComplete, exerciseHistory, progressionFor, DELOAD_AFTER,
   DIFFICULTY, monthCells, monthSummary, seasonProgress, seasonWindow, goalProgress,
@@ -32,6 +32,22 @@ t("shiftKey crosses month and year boundaries", () => {
   assert.equal(shiftKey("2026-08-31", 1), "2026-09-01");
   assert.equal(shiftKey("2027-01-01", -1), "2026-12-31");
   assert.equal(shiftKey("2026-03-01", -1), "2026-02-28");
+});
+
+t("log navigation keeps the selected day in the displayed month", () => {
+  const cases = [
+    [{ y: 2026, m: 0 }, "2026-01-31", 1, "2026-02-28"],
+    [{ y: 2028, m: 0 }, "2028-01-31", 1, "2028-02-29"],
+    [{ y: 2026, m: 2 }, "2026-03-31", -1, "2026-02-28"],
+    [{ y: 2026, m: 11 }, "2026-12-15", 1, "2027-01-15"],
+    [{ y: 2026, m: 0 }, "2026-01-15", -1, "2025-12-15"],
+  ];
+  for (const [cursor, picked, direction, expected] of cases) {
+    const next = shiftMonthSelection(cursor, picked, direction);
+    assert.equal(next.picked, expected);
+    assert.ok(monthCells(next.cursor.y, next.cursor.m).cells.some((cell) => cell.key === next.picked),
+      "the detail view must have a matching calendar cell");
+  }
 });
 
 t("daysBetween is signed and correct", () => {
