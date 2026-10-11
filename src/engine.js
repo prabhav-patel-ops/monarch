@@ -428,9 +428,9 @@ export function applyRatchet(days, endKey, prog, settings = {}) {
 
 /* ---------- streak ---------- */
 
-// This rule starts with missed days from the rollout, leaving confirmed
-// historical streak records unchanged when old saves are recalculated.
-const STREAK_RECOVERY_START = "2026-10-10";
+// Include the day before rollout: its penalty work could have been completed
+// on rollout day. Older confirmed streak records stay unchanged.
+const STREAK_RECOVERY_START = "2026-10-09";
 
 /**
  * A day below its clear bar can keep its place in the streak only when every
