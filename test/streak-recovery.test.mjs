@@ -15,11 +15,13 @@ const second = day("2026-10-11", [quest("b", 100, true)]);
 const missed = day("2026-10-12", [
   quest("recurring", 50),
   quest("one-off", 50),
+  quest("second-penalty", 50),
   quest("completed", 20, true),
 ]);
 const today = day("2026-10-13", [
   quest("recurring", 50, false, { recoveryFor: missed.date }),
   quest("one-off", 75, false, { penalty: true, recoveryFor: missed.date }),
+  quest("second-penalty", 75, false, { penalty: true, recoveryFor: missed.date }),
   quest("own-work", 300),
 ]);
 const days = Object.fromEntries([first, second, missed, today].map((d) => [d.date, d]));
@@ -29,22 +31,26 @@ assert.equal(streakRecovery(days, missed.date).complete, false);
 assert.equal(computeStreak(days, today.date).current, 0, "unfinished catch-up cannot preserve the streak");
 
 today.quests[0].done = true;
-assert.equal(streakRecovery(days, missed.date).done, 1);
-assert.equal(computeStreak(days, today.date).current, 0, "one of two missed tasks is insufficient");
+assert.equal(streakRecovery(days, missed.date).done, 0,
+  "a recurring normal task is not a requirement when penalty rows exist");
 
 today.quests[1].done = true;
+assert.equal(streakRecovery(days, missed.date).done, 1);
+assert.equal(computeStreak(days, today.date).current, 0, "one of two visible penalties is insufficient");
+
+today.quests[2].done = true;
 assert.equal(streakRecovery(days, missed.date).complete, true);
 assert.equal(isDayCleared(today), false, "catch-up need not clear the current day");
 assert.equal(computeStreak(days, today.date).current, 3, "yesterday is restored while today is still in progress");
 assert.equal(computeStreak(days, today.date).best, 3);
 assert.ok(dayPenalty(missed).total > 0, "streak recovery does not erase the original XP charge");
 
-today.quests[2].done = true;
+today.quests[3].done = true;
 assert.equal(computeStreak(days, today.date).current, 4, "clearing today extends the restored streak");
 
-const tooLate = day("2026-10-14", [quest("recurring", 50, true), quest("one-off", 75, true)]);
-today.quests[0].done = false;
-today.quests[2].done = false;
+const tooLate = day("2026-10-14", [quest("recurring", 50, true), quest("one-off", 75, true), quest("second-penalty", 75, true)]);
+today.quests[1].done = false;
+today.quests[3].done = false;
 days[tooLate.date] = tooLate;
 assert.equal(streakRecovery(days, missed.date).complete, false, "completing it two days later cannot repair the miss");
 assert.equal(computeStreak(days, tooLate.date).current, 1, "later success starts a new run");
@@ -58,13 +64,15 @@ assert.equal(generated.quests.filter((q) => q.key === "recurring").length, 1, "a
 assert.equal(generated.quests.find((q) => q.key === "recurring").recoveryFor, missed.date);
 assert.equal(generated.quests.find((q) => q.key === "one-off").penalty, true);
 assert.equal(generated.quests.find((q) => q.key === "one-off").recoveryFor, missed.date);
-generated.quests.find((q) => q.key === "recurring").done = true;
+assert.equal(generated.quests.find((q) => q.key === "second-penalty").penalty, true);
 generated.quests.find((q) => q.key === "one-off").done = true;
+generated.quests.find((q) => q.key === "second-penalty").done = true;
 assert.equal(streakRecovery({ [missed.date]: missed, [generated.date]: generated }, missed.date).complete, true);
 
 const legacy = day("2026-10-13", [
   quest("recurring", 50, true),
   quest("one-off", 75, true, { penalty: true }),
+  quest("second-penalty", 75, true, { penalty: true }),
 ]);
 assert.equal(streakRecovery({ [missed.date]: missed, [legacy.date]: legacy }, missed.date).complete, true,
   "existing saved boards without recovery metadata still qualify");
