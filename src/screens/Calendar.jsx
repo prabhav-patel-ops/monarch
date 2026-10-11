@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import { Win } from "../ui.jsx";
 import {
   monthCells, monthSummary, GRADE_TONE, buildSchedule, journeyEvents,
-  seasonProgress, parseKey, shiftKey, daysBetween, levelFromTotalXp, rankFromLevel,
+  seasonProgress, parseKey, shiftKey, daysBetween, levelFromTotalXp, rankFromLevel, streakRecovery,
 } from "../engine.js";
 import { defaultSeason, SEASON_LENGTH, SEASON_GOAL_TYPES } from "../data.js";
 import { dailyRemindersIcs, gatesIcs, scheduleIcs, downloadIcs } from "../calendar.js";
@@ -73,6 +73,7 @@ function Month({ state, todayKey, flash, onJournal }) {
 
   const day = state.days[picked];
   const cell = grid.cells.find((c) => c.key === picked);
+  const recovered = streakRecovery(state.days, picked, state.settings.difficulty).complete;
 
   return (
     <>
@@ -139,6 +140,11 @@ function Month({ state, todayKey, flash, onJournal }) {
             <div className="bar">
               <i style={{ width: `${(cell.ratio || 0) * 100}%`, background: GRADE_TONE[cell.grade] }} />
             </div>
+            {recovered && (
+              <p className="faint" style={{ margin: "10px 0 0", color: "var(--rune)" }}>
+                Streak preserved by next-day catch-up. This day’s grade and XP charge still stand.
+              </p>
+            )}
             <div style={{ marginTop: 10 }}>
               {day.quests.map((q) => (
                 <div className="kv" key={q.id}>

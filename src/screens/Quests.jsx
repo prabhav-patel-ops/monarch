@@ -5,7 +5,7 @@ import {
   dayExtras, rawExtraXp, extraCeiling, dayExtraXp, sideXp,
   SIDE_SIGNIFICANCE, significanceOf,
   CLEAR_THRESHOLD, shiftKey, parseKey, STATS,
-  gradeDay, dayPenalty, escalationAt, projectedPenalty,
+  gradeDay, dayPenalty, escalationAt, projectedPenalty, streakRecovery,
 } from "../engine.js";
 
 const WD = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -181,6 +181,11 @@ export default function Quests({ state, todayKey, onToggle, onExcuse, onAddExtra
   const charge = dayPenalty(day, esc.multiplier, DIFFICULTY[mode || "normal"].depth, mode);
   const owed = charge.byStat;
   const owedTotal = charge.total;
+  const previousKey = shiftKey(viewKey, -1);
+  const recovery = streakRecovery(state.days, previousKey, mode);
+  const recoveryKeys = new Set(recovery.eligible
+    ? state.days[previousKey].quests.filter((q) => !q.done && !q.excused).map((q) => q.key)
+    : []);
 
   const QuestRow = ({ q }) => (
     <div
@@ -204,6 +209,8 @@ export default function Quests({ state, todayKey, onToggle, onExcuse, onAddExtra
         <div className="qmeta">
           <span className="chip" style={{ color: STAT_META[q.stat].color }}>{q.stat}</span>
           {q.penalty && <span className="chip chip--pen">Penalty</span>}
+          {recoveryKeys.has(q.key) && (!q.recoveryFor || q.recoveryFor === previousKey) &&
+            <span className="chip chip--pen">Streak catch-up</span>}
           <span className="qxp">{q.xp} xp</span>
           {!q.done && !isFuture && (
             <button
@@ -247,10 +254,21 @@ export default function Quests({ state, todayKey, onToggle, onExcuse, onAddExtra
         </div>
       </Win>
 
+      {recovery.eligible && (
+        <Win tone={recovery.complete ? "accent" : "danger"} title="Keep your streak" right={`${recovery.done}/${recovery.total} caught up`}>
+          <p className="faint" style={{ margin: 0 }}>
+            {recovery.complete
+              ? "Yesterday's missed work is complete. Its place in your streak is restored. Clear today's board to extend the run."
+              : "Finish every task marked Streak catch-up today to keep yesterday in your streak. Recurring tasks count once; you won't see duplicate rows."}
+            {" "}Yesterday's XP charge and grade remain unchanged.
+          </p>
+        </Win>
+      )}
+
       {penalties.length > 0 && (
         <Win tone="danger" title="Penalty quests" right={`${penalties.length} carried over`}>
           <p className="faint" style={{ marginTop: 0 }}>
-            Left undone yesterday. Worth one and a half times face value if you clear them today.
+            Left undone yesterday and not already on today's board. Worth one and a half times face value if you clear them today.
           </p>
           {penalties.map((q) => <QuestRow key={q.id} q={q} />)}
         </Win>

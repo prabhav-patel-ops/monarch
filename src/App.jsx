@@ -193,7 +193,7 @@ export default function App() {
           .reduce((sum, g) => sum + (g.rewardXp || GATE_REWARDS[g.rank] || 0), 0);
         draft.totalXp = totals.totalXp + gateXp;
         draft.statXp = { ...totals.statXp, INT: (totals.statXp.INT || 0) + gateXp };
-        draft.streak = computeStreak(draft.days, todayKey);
+        draft.streak = computeStreak(draft.days, todayKey, draft.settings.difficulty);
 
         const lvl = levelFromTotalXp(draft.totalXp).level;
         const seen = draft.seenLevel || 1;
