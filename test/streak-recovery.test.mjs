@@ -10,14 +10,14 @@ function day(date, quests) {
   return { date, generated: true, quests };
 }
 
-const first = day("2026-10-01", [quest("a", 100, true)]);
-const second = day("2026-10-02", [quest("b", 100, true)]);
-const missed = day("2026-10-03", [
+const first = day("2026-10-10", [quest("a", 100, true)]);
+const second = day("2026-10-11", [quest("b", 100, true)]);
+const missed = day("2026-10-12", [
   quest("recurring", 50),
   quest("one-off", 50),
   quest("completed", 20, true),
 ]);
-const today = day("2026-10-04", [
+const today = day("2026-10-13", [
   quest("recurring", 50, false, { recoveryFor: missed.date }),
   quest("one-off", 75, false, { penalty: true, recoveryFor: missed.date }),
   quest("own-work", 300),
@@ -42,18 +42,18 @@ assert.ok(dayPenalty(missed).total > 0, "streak recovery does not erase the orig
 today.quests[2].done = true;
 assert.equal(computeStreak(days, today.date).current, 4, "clearing today extends the restored streak");
 
-const tooLate = day("2026-10-05", [quest("recurring", 50, true), quest("one-off", 75, true)]);
+const tooLate = day("2026-10-14", [quest("recurring", 50, true), quest("one-off", 75, true)]);
 today.quests[0].done = false;
 today.quests[2].done = false;
 days[tooLate.date] = tooLate;
 assert.equal(streakRecovery(days, missed.date).complete, false, "completing it two days later cannot repair the miss");
 assert.equal(computeStreak(days, tooLate.date).current, 1, "later success starts a new run");
 
-const templates = { 0: [
+const templates = { 2: [
   { key: "recurring", title: "Daily", stat: "INT", xp: 50, slot: 1 },
   { key: "own-work", title: "Today", stat: "INT", xp: 300, slot: 2 },
 ] };
-const generated = generateDay("2026-10-04", templates, {}, missed);
+const generated = generateDay("2026-10-13", templates, {}, missed);
 assert.equal(generated.quests.filter((q) => q.key === "recurring").length, 1, "a recurring task has one row");
 assert.equal(generated.quests.find((q) => q.key === "recurring").recoveryFor, missed.date);
 assert.equal(generated.quests.find((q) => q.key === "one-off").penalty, true);
@@ -62,19 +62,19 @@ generated.quests.find((q) => q.key === "recurring").done = true;
 generated.quests.find((q) => q.key === "one-off").done = true;
 assert.equal(streakRecovery({ [missed.date]: missed, [generated.date]: generated }, missed.date).complete, true);
 
-const legacy = day("2026-10-04", [
+const legacy = day("2026-10-13", [
   quest("recurring", 50, true),
   quest("one-off", 75, true, { penalty: true }),
 ]);
 assert.equal(streakRecovery({ [missed.date]: missed, [legacy.date]: legacy }, missed.date).complete, true,
   "existing saved boards without recovery metadata still qualify");
 
-const excused = day("2026-10-03", [quest("required", 50), quest("excused", 50, false, { excused: true })]);
-const afterExcused = day("2026-10-04", [quest("required", 50, true)]);
+const excused = day("2026-10-12", [quest("required", 50), quest("excused", 50, false, { excused: true })]);
+const afterExcused = day("2026-10-13", [quest("required", 50, true)]);
 assert.deepEqual(streakRecovery({ [excused.date]: excused, [afterExcused.date]: afterExcused }, excused.date),
   { eligible: true, total: 1, done: 1, complete: true }, "excused tasks do not become recovery requirements");
 
-const future = day("2026-10-05", [quest("required", 50, true)]);
+const future = day("2026-10-14", [quest("required", 50, true)]);
 const futureDays = {
   [first.date]: first,
   [second.date]: second,
