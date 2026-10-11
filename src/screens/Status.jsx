@@ -122,7 +122,7 @@ export default function Status({ state, todayKey }) {
           </div>
         </div>
         <p className="faint" style={{ marginTop: 10, marginBottom: 0 }}>
-          A day counts when it reaches its clear bar. If you miss it, finishing every missed task the next day can preserve your streak. Sunday rest counts like any other day.
+          A day counts when it reaches its clear bar. If you miss it, finish the next day's Penalty quests to preserve your streak. Sunday rest counts like any other day.
         </p>
       </Win>
 
