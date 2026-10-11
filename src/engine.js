@@ -428,6 +428,10 @@ export function applyRatchet(days, endKey, prog, settings = {}) {
 
 /* ---------- streak ---------- */
 
+// This rule starts with missed days from the rollout, leaving confirmed
+// historical streak records unchanged when old saves are recalculated.
+const STREAK_RECOVERY_START = "2026-10-10";
+
 /**
  * A day below its clear bar can keep its place in the streak only when every
  * unexcused missed quest is completed on the very next day's board. Recurring
@@ -439,7 +443,7 @@ export function streakRecovery(days, missedKey, mode) {
   const missedDay = days[missedKey];
   const nextDay = days[shiftKey(missedKey, 1)];
   const empty = { eligible: false, total: 0, done: 0, complete: false };
-  if (!missedDay?.generated || !nextDay?.generated || isDayCleared(missedDay, mode)) return empty;
+  if (missedKey < STREAK_RECOVERY_START || !missedDay?.generated || !nextDay?.generated || isDayCleared(missedDay, mode)) return empty;
 
   const keys = [...new Set(missedDay.quests
     .filter((q) => !q.done && !q.excused)
