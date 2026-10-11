@@ -113,21 +113,31 @@ assert.equal(computeStreak(boundaryDays, oct10.date).current, 2,
 // visible carried Penalty quests, and both were done. Brainteasers was an
 // ordinary October 10 quest left undone; it must not silently block recovery.
 const oct9Screenshot = day("2026-10-09", [
+  quest("wake", 10, true),
+  quest("gym", 45, true),
+  quest("protein", 25, true),
   quest("whood", 70),
   quest("brainteaser", 25),
+  quest("office", 45, true),
+  quest("career", 30, true),
   quest("options", 60),
+  quest("projects", 70, true),
   quest("lights-out", 15),
-  quest("other-work", 225, true),
 ]);
 const oct10Screenshot = day("2026-10-10", [
+  quest("wake", 10, false, { excused: true }),
+  quest("gym", 45, true),
+  quest("protein", 25, true),
   quest("whood-weekend", 70, true),
   quest("brainteaser", 30),
+  quest("projects", 70, true),
   quest("lights-out", 15, true),
   quest("whood", 105, true, { penalty: true }),
   quest("options", 90, true, { penalty: true }),
-  quest("today-work", 150, true),
 ]);
 const picturedDays = { [oct9Screenshot.date]: oct9Screenshot, [oct10Screenshot.date]: oct10Screenshot };
+assert.equal(oct9Screenshot.quests.filter((q) => q.done).reduce((sum, q) => sum + q.xp, 0), 225);
+assert.equal(oct10Screenshot.quests.filter((q) => q.done).reduce((sum, q) => sum + q.xp, 0), 420);
 assert.equal(streakRecovery(picturedDays, oct9Screenshot.date).total, 2);
 assert.equal(streakRecovery(picturedDays, oct9Screenshot.date).complete, true,
   "both visible penalties restore October 9 even with a normal Brainteasers quest undone");
