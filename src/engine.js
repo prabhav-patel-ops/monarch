@@ -433,11 +433,13 @@ export function applyRatchet(days, endKey, prog, settings = {}) {
 const STREAK_RECOVERY_START = "2026-10-09";
 
 /**
- * A day below its clear bar can keep its place in the streak only when every
- * unexcused missed quest is completed on the very next day's board. Recurring
- * quests use their existing row; other misses appear as penalty quests.
- * Historical saves without recoveryFor still work by matching the quest key.
- * This repairs the streak only: the original day keeps its grade and XP cost.
+ * A day below its clear bar keeps its place in the streak when every visible
+ * penalty quest carried from that day is completed on the next day. Recurring
+ * quests that already appear on the next board are not an extra requirement
+ * when penalty quests exist. If no penalty row was needed, the recurring
+ * missed quests become the catch-up work instead. Historical saves without
+ * recoveryFor still work by matching the quest key. This repairs the streak
+ * only: the original day keeps its grade and XP cost.
  */
 export function streakRecovery(days, missedKey, mode) {
   const missedDay = days[missedKey];
@@ -451,6 +453,18 @@ export function streakRecovery(days, missedKey, mode) {
     .filter(Boolean))];
   if (!keys.length) return empty;
 
+  const missedKeys = new Set(keys);
+  const carried = nextDay.quests.filter((q) =>
+    q.penalty && missedKeys.has(q.key) &&
+    (!q.recoveryFor || q.recoveryFor === missedKey)
+  );
+  if (carried.length) {
+    const done = carried.filter((q) => q.done && !q.excused).length;
+    return { eligible: true, total: carried.length, done, complete: done === carried.length };
+  }
+
+  // With no separate penalty rows, completing the repeated daily quests is
+  // the only catch-up path; do not count an absent or excused quest as done.
   const done = keys.filter((key) => nextDay.quests.some((q) =>
     q.key === key && q.done && !q.excused &&
     (!q.recoveryFor || q.recoveryFor === missedKey)
