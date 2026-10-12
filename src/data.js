@@ -39,10 +39,11 @@ const GYM = {
   slot: 2,
 };
 
-const WHOOD = {
+// Keep the legacy key so saved completions, penalties, and streaks still match.
+const STARTUP = {
   key: "whood",
-  title: "Whood product block",
-  detail: "One focused hour on the product: build, refine, test, or ship.",
+  title: "Startup block",
+  detail: "One focused hour on a startup: build, validate, refine, or ship.",
   stat: "AGI",
   xp: 70,
   slot: 4,
@@ -120,7 +121,7 @@ const HULL_EVE = {
   slot: 8,
 };
 
-const WEEKDAY = [WAKE, GYM, PROTEIN, WHOOD, TEASERS, OFFICE, CAREER_DAILY, HULL_EVE, PROJECTS_MATHS, SLEEP];
+const WEEKDAY = [WAKE, GYM, PROTEIN, STARTUP, TEASERS, OFFICE, CAREER_DAILY, HULL_EVE, PROJECTS_MATHS, SLEEP];
 
 /* Monday keeps the normal weekday board but drops the former third study
    session. The combined Projects and Maths block is the only late study block. */
@@ -135,8 +136,8 @@ const SATURDAY = [
   PROTEIN,
   {
     key: "whood_weekend",
-    title: "Whood product block",
-    detail: "One focused hour on the product: build, refine, test, or ship.",
+    title: "Startup block",
+    detail: "One focused hour on a startup: build, validate, refine, or ship.",
     stat: "AGI",
     xp: 70,
     slot: 4,
@@ -159,8 +160,8 @@ const SUNDAY = [
   PROTEIN,
   {
     key: "whood_upsolve",
-    title: "Whood product block",
-    detail: "One focused hour on the product: build, refine, test, or ship.",
+    title: "Startup block",
+    detail: "One focused hour on a startup: build, validate, refine, or ship.",
     stat: "AGI",
     xp: 70,
     slot: 4,
