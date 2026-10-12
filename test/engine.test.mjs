@@ -446,14 +446,45 @@ t("every weekday is covered by a template", () => {
     assert.ok(whood.detail && whood.detail.includes("focused hour"));
   });
 
-  t("generated weekday quests show the Whood block, teaser count and page target", () => {
+  t("generated weekday quests show the Startup block, teaser count and page target", () => {
     const s = emptyState();
     const day = generateDay("2026-08-31", s.templates, s.progression, null);
     const find = (k) => day.quests.find((q) => q.key === k);
+    assert.equal(find("whood").title, "Startup block");
     assert.match(find("whood").detail, /focused hour/);
     assert.match(find("teasers").detail, /2 from Brainstellar/);
     assert.match(find("hull_eve").detail, /15 pages/);
     day.quests.forEach((q) => assert.ok(q.detail.length > 0, `${q.key} has no detail`));
+  });
+
+  t("saved Whood quest becomes Startup without losing today's completion or XP", () => {
+    const today = dateKey(new Date());
+    const old = emptyState();
+    old.templatesVersion = TEMPLATES_VERSION - 1;
+    old.days[today] = generateDay(today, old.templates, old.progression, null);
+    const before = old.days[today].quests.find((q) => q.key.startsWith("whood"));
+    before.title = "Whood product block";
+    before.detail = "One focused hour on the product: build, refine, test, or ship.";
+    before.done = true;
+    const { id, key, xp } = before;
+    old.days[today].quests.push({
+      id: "carried-startup", key, title: "Whood product block", detail: before.detail,
+      stat: "AGI", xp: 105, slot: "penalty", done: false, penalty: true,
+    });
+
+    const fixed = hydrate(JSON.parse(JSON.stringify(old)));
+    const renamed = fixed.days[today].quests.find((q) => q.id === id);
+    assert.equal(renamed.title, "Startup block");
+    assert.match(renamed.detail, /on a startup/);
+    assert.equal(renamed.done, true);
+    assert.equal(renamed.xp, xp);
+    assert.equal(renamed.id, id);
+    assert.equal(fixed.days[today].quests.filter((q) => q.id === id).length, 1);
+    const penalty = fixed.days[today].quests.find((q) => q.id === "carried-startup");
+    assert.equal(penalty.title, "Startup block");
+    assert.equal(penalty.xp, 105);
+    assert.equal(penalty.penalty, true);
+    assert.equal(fixed.templates[parseKey(today).getDay()].find((q) => q.key === key).title, "Startup block");
   });
 
   t("a pre-v2 save is migrated and its blank details repaired", () => {
@@ -554,10 +585,11 @@ t("every weekday is covered by a template", () => {
     assert.ok(doneWake, "the existing quest survives the reprice");
   });
 
-  t("Whood is optional to Codeforces and the placeholder block is absent", () => {
+  t("Startup is optional to Codeforces and the placeholder block is absent", () => {
     Object.entries(DEFAULT_TEMPLATES).forEach(([d, quests]) => {
       const keys = quests.map((q) => q.key);
-      assert.ok(keys.some((k) => k.startsWith("whood")), `day ${d} has Whood`);
+      assert.ok(keys.some((k) => k.startsWith("whood")), `day ${d} has Startup`);
+      assert.equal(quests.find((q) => q.key.startsWith("whood")).title, "Startup block");
       assert.ok(!keys.some((k) => k === "cf" || k.startsWith("cf_")), `day ${d} has no compulsory Codeforces`);
       assert.ok(keys.includes("projects_maths"), `day ${d} has Projects and Maths`);
     });
