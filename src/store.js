@@ -26,7 +26,7 @@ const MAX_LINEAGE = 100;
 /* Bump when DEFAULT_TEMPLATES changes shape OR when quest XP is repriced.
    Saved templates below this are replaced on load, because an old save can
    carry stale quest copy and stale prices. */
-export const TEMPLATES_VERSION = 9;
+export const TEMPLATES_VERSION = 10;
 
 const DIFFICULTY_KEYS = ["normal", "hard", "monarch"];
 
@@ -172,6 +172,7 @@ export function hydrate(parsed) {
     Object.values(DEFAULT_TEMPLATES).forEach((list) =>
       list.forEach((t) => byKey.set(t.key, t))
     );
+    const startupKeys = new Set(["whood", "whood_weekend", "whood_upsolve"]);
 
     /* Reprice today and anything ahead of it, never a day that has closed. A
        finished day was graded and charged against the prices in force at the
@@ -191,8 +192,9 @@ export function hydrate(parsed) {
       (day.quests || []).forEach((q) => {
         const t = byKey.get(q.key);
         if (!t) return;
-        if (!q.detail) q.detail = resolveDetail(t.detail, merged.progression);
-        if (t.title && q.title !== t.title && !q.penalty) q.title = t.title;
+        if (!q.detail || (dk >= today && startupKeys.has(q.key)))
+          q.detail = resolveDetail(t.detail, merged.progression);
+        if (t.title && q.title !== t.title && (!q.penalty || startupKeys.has(q.key))) q.title = t.title;
         if (dk >= today && !q.penalty && typeof t.xp === "number") q.xp = t.xp;
         if (dk >= today && !q.penalty && typeof t.slot === "number") q.slot = t.slot;
       });
