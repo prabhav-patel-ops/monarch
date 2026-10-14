@@ -850,9 +850,8 @@ to{
    actually close it, which is the only reason to show an alert at all. */
 
 .mn-alerts{
-  position:sticky;
-  top:0;
-  z-index:30;
+  position:relative;
+  z-index:2;
   display:grid;
   gap:4px;
   padding:6px 12px 0}
