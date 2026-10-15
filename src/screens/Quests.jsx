@@ -1,10 +1,10 @@
 import React, { useState, useMemo } from "react";
 import { Win, Ico } from "../ui.jsx";
 import {
-  DIFFICULTY, STAT_META, dayAvailableXp, dayEarnedXp, isDayCleared,
+  DIFFICULTY, STAT_META, dayChargeableXp,
   dayExtras, rawExtraXp, extraCeiling, dayExtraXp, sideXp,
   SIDE_SIGNIFICANCE, significanceOf,
-  CLEAR_THRESHOLD, shiftKey, parseKey, STATS,
+  shiftKey, parseKey, STATS,
   gradeDay, dayPenalty, escalationAt, projectedPenalty, streakRecovery,
 } from "../engine.js";
 
@@ -168,10 +168,13 @@ export default function Quests({ state, todayKey, onToggle, onExcuse, onAddExtra
     );
   }
 
-  const avail = dayAvailableXp(day);
-  const earned = dayEarnedXp(day);
-  const pct = avail ? (earned / avail) * 100 : 0;
-  const cleared = isDayCleared(day, state.settings.difficulty);
+  const dailyGrade = gradeDay(day, state.settings.difficulty);
+  const avail = dayChargeableXp(day);
+  const earned = day.quests
+    .filter((q) => q.done && !q.excused)
+    .reduce((sum, q) => sum + q.xp, 0);
+  const pct = dailyGrade.ratio * 100;
+  const cleared = dailyGrade.grade === "clean" || dailyGrade.grade === "held";
   const normal = day.quests.filter((q) => !q.penalty).sort((a, b) => a.slot - b.slot);
   const penalties = day.quests.filter((q) => q.penalty);
   const mode = state.settings.difficulty;
@@ -243,7 +246,7 @@ export default function Quests({ state, todayKey, onToggle, onExcuse, onAddExtra
             <span style={{ fontSize: 14, color: "var(--text-faint)" }}> / {avail} xp</span>
           </div>
           <div className="xp-frac">
-            {cleared ? "Day cleared" : `${Math.round(CLEAR_THRESHOLD * 100 - pct)}% to clear`}
+            {cleared ? "Day cleared" : `${dailyGrade.needed} xp to clear`}
           </div>
         </div>
         <div className="bar"><i style={{ width: `${pct}%` }} /></div>
@@ -344,3 +347,4 @@ export default function Quests({ state, todayKey, onToggle, onExcuse, onAddExtra
     </>
   );
 }
+
