@@ -9,7 +9,6 @@ import {
   replaceState,
   restoreLatestSnapshot,
   requestPersistentStorage,
-  createRecoverySnapshot,
 } from "./store.js";
 import {
   dateKey, shiftKey, generateDay, recomputeTotals, computeStreak,
@@ -31,10 +30,6 @@ import Calendar from "./screens/Calendar.jsx";
 import Focus from "./screens/Focus.jsx";
 import Shadows from "./screens/Shadows.jsx";
 import SystemChat from "./screens/System.jsx";
-import {
-  applyConfirmedRecovery,
-  CONFIRMED_RECOVERY_ID,
-} from "./confirmed-recovery.js";
 
 const MAX_BACKFILL = 7;
 
@@ -54,51 +49,8 @@ function Ambient() {
 const clone = (o) =>
   typeof structuredClone === "function" ? structuredClone(o) : JSON.parse(JSON.stringify(o));
 
-function requestedRecovery() {
-  if (typeof window === "undefined") return null;
-  return new URLSearchParams(window.location.search).get("recover");
-}
-
-function clearRecoveryRequest() {
-  if (typeof window === "undefined" || typeof window.history?.replaceState !== "function") return;
-  const url = new URL(window.location.href);
-  url.searchParams.delete("recover");
-  window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
-}
-
 function loadInitialState() {
-  const loaded = loadState();
-  if (requestedRecovery() !== CONFIRMED_RECOVERY_ID) return loaded;
-  if (loaded.blocked) {
-    return {
-      ...loaded,
-      recovery: { ok: false, message: "Recovery paused: export or restore the damaged save first." },
-    };
-  }
-
-  createRecoverySnapshot(loaded.state, `before-${CONFIRMED_RECOVERY_ID}`, loaded.meta).catch(() => {});
-  const recovered = applyConfirmedRecovery(loaded.state);
-  const written = saveState(recovered, {
-    expectedHash: loaded.hash || null,
-    reason: CONFIRMED_RECOVERY_ID,
-  });
-  if (!written.ok) {
-    return { ...loaded, recovery: { ok: false, message: written.reason } };
-  }
-
-  clearRecoveryRequest();
-  return {
-    ...loaded,
-    state: recovered,
-    hash: written.hash,
-    meta: written.meta,
-    status: "ok",
-    blocked: false,
-    recovery: {
-      ok: true,
-      message: "Recovered Sep 13: complete · 85 kg · Codeforces 1481 · streak history preserved",
-    },
-  };
+  return loadState();
 }
 
 const CalIcon = () => (

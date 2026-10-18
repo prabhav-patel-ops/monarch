@@ -218,11 +218,12 @@ export default function Quests({ state, todayKey, onToggle, onExcuse, onAddExtra
         {q.detail && <div className="qdetail">{q.detail}</div>}
         <div className="qmeta">
           <span className="chip" style={{ color: STAT_META[q.stat].color }}>{q.stat}</span>
+          {q.required && <span className="chip chip--pen">Compulsory</span>}
           {q.penalty && <span className="chip chip--pen">Penalty</span>}
           {recoveryKeys.has(q.key) && (!q.recoveryFor || q.recoveryFor === previousKey) &&
             <span className="chip chip--pen">Streak catch-up</span>}
           <span className="qxp">{q.xp} xp</span>
-          {!q.done && !isFuture && (
+          {!q.done && !isFuture && !q.required && (
             <button
               className="ghost"
               style={{ padding: "1px 7px", fontSize: 10, clipPath: "none" }}
@@ -347,4 +348,3 @@ export default function Quests({ state, todayKey, onToggle, onExcuse, onAddExtra
     </>
   );
 }
-

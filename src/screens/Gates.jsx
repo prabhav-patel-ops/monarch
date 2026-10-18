@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { Win } from "../ui.jsx";
 import { GateSigil } from "../art.jsx";
 import { GATE_RANKS, gateStatus, sortGates, daysBetween, parseKey } from "../engine.js";
-import { MISSION } from "../data.js";
 
 const STATUS_LABEL = {
   open: "Open now",
@@ -110,7 +109,7 @@ export default function Gates({ state, todayKey, onAddGate, onClearGate, onDelet
         )}
       </Win>
 
-      <Win title="Rating log" right={`Goal ${MISSION.cfGoal}`}>
+      <Win title="Rating log" right="Stored on this device">
         <p className="faint" style={{ marginTop: 0 }}>
           Enter your Codeforces rating after each rated round. Practice moves the band; only contests move this.
         </p>
@@ -118,7 +117,7 @@ export default function Gates({ state, todayKey, onAddGate, onClearGate, onDelet
           <input
             type="number"
             inputMode="numeric"
-            placeholder="1327"
+            placeholder="1500"
             value={rating}
             onChange={(e) => setRating(e.target.value)}
           />

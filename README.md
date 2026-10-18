@@ -21,6 +21,8 @@ generated quest board), **Gates** (contests, deadlines, rating thresholds),
 sleep), **Shadows** (shipped projects, each granting a permanent XP multiplier),
 and **System** (chat).
 
+Every daily board ends with a 5 XP **Make tomorrow's timetable** quest immediately before sleep. It is a compulsory gate: the day cannot clear while it remains unfinished, even when the XP threshold has otherwise been reached.
+
 ## The quest engine
 
 Each day is generated from three inputs:
@@ -99,6 +101,14 @@ hidden oil. Weighing beats photographing, on the days you care about the number.
 
 ## Your data
 
-Everything lives in `localStorage` under `monarch.v1`, on your device only.
-Nothing is uploaded. Use the backup export in Status before clearing your
-browser, reinstalling, or switching phones.
+Core app data lives in `localStorage` under `monarch.v1`, on your device only.
+It is not uploaded by the static app. Use the backup export in Status before
+clearing your browser, reinstalling, or switching phones. If the optional AI
+features are separately connected, only the information shown in their review
+or chat flow is sent to that configured service.
+
+The public repository and hosted bundle contain no user profile, diary history,
+health log, ratings, deadlines, recovery snapshot, or exported save. A fresh
+installation starts with generic templates and empty history. An existing
+`monarch.v1` save remains the source of truth when the app updates; migrations
+add required app features without replacing the user's private routine or logs.
