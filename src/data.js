@@ -1,19 +1,12 @@
 /* ============================================================
-   MONARCH — seed data
-   Baseline routine transcribed from Prabhav's stated weekday.
-   Everything here is editable in-app; this is only the start.
+   MONARCH — public defaults
+   Personal routines and history belong only in the device's local save.
+   The repository ships a deliberately generic, empty starting point.
    ============================================================ */
 
 export const MISSION = {
-  hunter: "Prabhav",
-  bodyStart: "2026-07-22",
-  bodyDays: 150,
-  startWeight: 84,
-  goalWeight: 72,
-  height: 175,
-  targets: { kcal: 2150, protein: 160, proteinTick: 135, water: 3.5, sleepBy: "22:00" },
-  cfStart: 1327,
-  cfGoal: 2000,
+  hunter: "Hunter",
+  targets: { kcal: 2000, protein: 100, proteinTick: 80, water: 2.5, sleepBy: "23:00" },
 };
 
 export const DEFAULT_PROGRESSION = {
@@ -26,164 +19,36 @@ export const DEFAULT_PROGRESSION = {
    slot drives ordering through the day.
    xp is face value; shadows multiply it at award time.        */
 
-const WAKE = { key: "wake", title: "Wake at 05:00", detail: "The day starts here.", stat: "VIT", xp: 10, slot: 1 };
-const SLEEP = { key: "sleep", title: "Lights out by 22:00", detail: "Seven hours is the floor, not the target", stat: "VIT", xp: 15, slot: 12 };
-const PROTEIN = { key: "protein", title: "Hit protein floor", detail: "135 g minimum, 160 g target", stat: "VIT", xp: 25, slot: 3 };
-
-const GYM = {
-  key: "gym",
-  title: "Clear the Strength dungeon",
-  detail: "05:30 – 06:45, gym and calisthenics",
-  stat: "STR",
-  xp: 45,
-  slot: 2,
-};
-
-// Keep the legacy key so saved completions, penalties, and streaks still match.
-const STARTUP = {
-  key: "whood",
-  title: "Startup block",
-  detail: "One focused hour on a startup: build, validate, refine, or ship.",
-  stat: "AGI",
-  xp: 70,
-  slot: 4,
-};
-
-const PROJECTS_MATHS = {
-  key: "projects_maths",
-  title: "Projects / Maths / Codeforces",
-  detail: "One focused hour. Choose Projects, Maths, or Codeforces according to what needs to move today.",
-  stat: "INT",
-  xp: 70,
-  slot: 9,
-};
-
-const TEASERS = {
-  key: "teasers",
-  title: "Brainteasers on the commute",
-  detail: "On the commute. {teasers} from Brainstellar or Zhou.",
+const PLAN_TOMORROW = {
+  key: "plan_tomorrow",
+  title: "Make tomorrow's timetable",
+  detail: "Before sleeping, write tomorrow's timetable. This compulsory gate decides whether the day clears.",
   stat: "PER",
-  xp: 25,
-  slot: 5,
+  xp: 5,
+  slot: 11.5,
+  required: true,
 };
+const START_DAY = { key: "wake", title: "Start the day", detail: "Begin intentionally.", stat: "VIT", xp: 10, slot: 1 };
+const MOVEMENT = { key: "gym", title: "Movement block", detail: "Complete the movement planned on this device.", stat: "STR", xp: 45, slot: 2 };
+const NUTRITION = { key: "protein", title: "Nutrition check", detail: "Meet the nutrition target stored on this device.", stat: "VIT", xp: 25, slot: 3 };
+const FOCUS = { key: "whood", title: "Focus block", detail: "One focused block on the work that matters today.", stat: "AGI", xp: 70, slot: 4 };
+const PROBLEMS = { key: "teasers", title: "Problem-solving block", detail: "Complete {teasers} deliberate problems.", stat: "PER", xp: 25, slot: 5 };
+const WORK = { key: "office", title: "Work block", detail: "Finish one meaningful work outcome.", stat: "INT", xp: 45, slot: 6 };
+const CAREER = { key: "career_daily", title: "Career block", detail: "Move one career action forward.", stat: "PER", xp: 30, slot: 7 };
+const STUDY = { key: "hull_eve", title: "Study block", detail: "Study {hullPages} pages with understanding.", stat: "INT", xp: 60, slot: 8 };
+const PROJECT = { key: "projects_maths", title: "Project block", detail: "Advance one project or structured learning block.", stat: "INT", xp: 70, slot: 9 };
+const REVIEW = { key: "review", title: "Weekly review", detail: "Review the week and plan the next one.", stat: "VIT", xp: 35, slot: 11 };
+const CLOSE_DAY = { key: "sleep", title: "Close the day", detail: "Finish at the bedtime stored on this device.", stat: "VIT", xp: 15, slot: 12 };
 
-/* The nine hours that are already spent. Framed as the work rather than the
-   attendance on purpose: turning up is not a choice on a Tuesday, and a quest
-   that cannot be failed is free XP that quietly lowers the bar for everything
-   else on the board. */
-const OFFICE = {
-  key: "office",
-  title: "Office block",
-  detail: "Nine hours. The quest is what you shipped, not that you were there.",
-  stat: "INT",
-  xp: 45,
-  slot: 6,
-};
+const WEEKDAY = [START_DAY, MOVEMENT, NUTRITION, FOCUS, PROBLEMS, WORK, CAREER, STUDY, PROJECT, PLAN_TOMORROW, CLOSE_DAY];
+const SATURDAY = [START_DAY, MOVEMENT, NUTRITION, { ...FOCUS, key: "whood_weekend" }, { ...PROBLEMS, xp: 30 }, PROJECT, PLAN_TOMORROW, CLOSE_DAY];
+const SUNDAY = [START_DAY, { key: "rest", title: "Recovery block", detail: "Take the recovery planned on this device.", stat: "VIT", xp: 40, slot: 2 }, NUTRITION, { ...FOCUS, key: "whood_upsolve" }, { ...PROBLEMS, xp: 30 }, PROJECT, REVIEW, PLAN_TOMORROW, CLOSE_DAY];
 
-/* Career work, every day, deliberately small. A daily half hour that never
-   slips beats a Saturday marathon that gets skipped when the week runs long.
-   What it is spent on rotates; that it happens does not. */
-const CAREER_DAILY = {
-  key: "career_daily",
-  title: "Career block",
-  detail: "30 – 45 minutes. One of: a live project, a paper, LinkedIn, an application, the CV.",
-  stat: "PER",
-  xp: 30,
-  slot: 7,
-};
-
-/* Weekend career blocks are retained as data for older saved boards, but the
-   active routine now uses one combined Projects + Maths block. */
-const CAREER_PROJECT = {
-  key: "career_project",
-  title: "Live project block",
-  detail: "Two hours. Something that ends up on the CV — shipped, not started.",
-  stat: "AGI",
-  xp: 70,
-  slot: 6,
-};
-
-const CAREER_ADMIN = {
-  key: "career_admin",
-  title: "Applications and profile",
-  detail: "One hour. Applications, LinkedIn, the CV, research, or reaching out to a person.",
-  stat: "PER",
-  xp: 40,
-  slot: 7,
-};
-
-const HULL_EVE = {
-  key: "hull_eve",
-  title: "Options block",
-  detail: "19:00 – 20:00. Hull, {hullPages} pages. Worked problems count double towards depth.",
-  stat: "INT",
-  xp: 60,
-  slot: 8,
-};
-
-const WEEKDAY = [WAKE, GYM, PROTEIN, STARTUP, TEASERS, OFFICE, CAREER_DAILY, HULL_EVE, PROJECTS_MATHS, SLEEP];
-
-/* Monday keeps the normal weekday board but drops the former third study
-   session. The combined Projects and Maths block is the only late study block. */
-const MONDAY = WEEKDAY;
-
-/* Weekends keep training, recovery, commute, review, and options work, but
-   replace the scattered career/deep-study blocks with one sustainable
-   Projects and Maths session. */
-const SATURDAY = [
-  WAKE,
-  GYM,
-  PROTEIN,
-  {
-    key: "whood_weekend",
-    title: "Startup block",
-    detail: "One focused hour on a startup: build, validate, refine, or ship.",
-    stat: "AGI",
-    xp: 70,
-    slot: 4,
-  },
-  { ...TEASERS, xp: 30 },
-  PROJECTS_MATHS,
-  SLEEP,
-];
-
-const SUNDAY = [
-  WAKE,
-  {
-    key: "rest",
-    title: "Take the rest day",
-    detail: "No gym. Recovery is a move, not a gap.",
-    stat: "VIT",
-    xp: 40,
-    slot: 2,
-  },
-  PROTEIN,
-  {
-    key: "whood_upsolve",
-    title: "Startup block",
-    detail: "One focused hour on a startup: build, validate, refine, or ship.",
-    stat: "AGI",
-    xp: 70,
-    slot: 4,
-  },
-  { ...TEASERS, xp: 30 },
-  PROJECTS_MATHS,
-
-  {
-    key: "review",
-    title: "Weekly review",
-    detail: "Weight, waist, photo, and next week's plan",
-    stat: "VIT",
-    xp: 35,
-    slot: 11,
-  },
-  SLEEP,
-];
-
-// 0 = Sunday
+// These are neutral starter templates, not a bundled user's routine. Existing
+// devices keep their private templates from monarch.v1 during migration.
 export const DEFAULT_TEMPLATES = {
   0: SUNDAY,
-  1: MONDAY,
+  1: WEEKDAY,
   2: WEEKDAY,
   3: WEEKDAY,
   4: WEEKDAY,
@@ -212,7 +77,7 @@ export const TRAINING = {
         group: "Cardio",
         kind: "cardio",
         note: "No stopping. One dial moves per session, never two.",
-        start: { min: 10, incline: 11, speed: 4.7 },
+        start: { min: 10, incline: 0, speed: 4 },
         caps: { min: 20, incline: 15, speed: 6 },
         steps: { min: 1, incline: 0.5, speed: 0.1 },
       },
@@ -224,7 +89,7 @@ export const TRAINING = {
         sets: 3,
         repRange: [8, 12],
         step: 2.5,
-        start: { kg: 55 },
+        start: {},
       },
       {
         key: "incline-db-press",
@@ -235,7 +100,7 @@ export const TRAINING = {
         sets: 3,
         repRange: [10, 15],
         step: 2.5,
-        start: { kg: 17.5, reps: 15 },
+        start: {},
       },
       {
         key: "lower-chest",
@@ -331,21 +196,8 @@ export const TRAINING = {
    real gap in the record rather than a zero — the progression engine will
    ask for it instead of guessing a target from it.                          */
 
-export const SEEDS_VERSION = 1;
-
-export const SEED_SESSIONS = {
-  "2026-08-31": {
-    "treadmill-incline": { cardio: { min: 10, incline: 11, speed: 4.7, nonstop: true } },
-    "bench-press": [{ kg: 55, reps: null }, { kg: 55, reps: null }, { kg: 55, reps: null }],
-    "incline-db-press": [{ kg: 17.5, reps: 15 }, { kg: 17.5, reps: 15 }, { kg: 17.5, reps: 15 }],
-    "lower-chest": [{ kg: null, reps: 12 }, { kg: null, reps: 12 }],
-    "triceps-1": [{ kg: null, reps: null }, { kg: null, reps: null }],
-    "triceps-2": [{ kg: null, reps: null }, { kg: null, reps: null }],
-    "russian-twist": [{ reps: 20 }, { reps: 20 }],
-    "leg-raise": [{ reps: 15 }, { reps: 15 }],
-    plank: [{ sec: 45 }, { sec: 45 }],
-  },
-};
+export const SEEDS_VERSION = 0;
+export const SEED_SESSIONS = {};
 
 /* ---------- food database (Indian vegetarian) ---------- */
 
@@ -401,51 +253,11 @@ export const FOODS = [
 
 /* ---------- gates seeded from known dates ---------- */
 
-export const SEED_GATES = [
-  {
-    id: "g_body",
-    name: "Operation −12kg closes",
-    rank: "B",
-    date: "2026-12-19",
-    note: "Day 150. 84 → 72 kg.",
-    cleared: false,
-  },
-  {
-    id: "g_hull",
-    name: "Hull chapters 10–21",
-    rank: "C",
-    date: "2026-09-28",
-    note: "Options block complete, derivations reproducible on blank paper.",
-    cleared: false,
-  },
-  {
-    id: "g_cf1500",
-    name: "Codeforces 1500",
-    rank: "D",
-    date: "2026-11-30",
-    note: "First checkpoint on the road to 2000.",
-    cleared: false,
-  },
-  {
-    id: "g_baruch",
-    name: "Baruch MFE, Round 1",
-    rank: "S",
-    date: "2027-11-01",
-    note: "The gate at the end of the map.",
-    cleared: false,
-  },
-];
+export const SEED_GATES = [];
 
 export const SEED_SHADOWS = [];
 
-export const SHADOW_PRESETS = [
-  { name: "C++ limit order book engine", stat: "AGI", bonus: 6 },
-  { name: "Delta-hedging simulator", stat: "INT", bonus: 6 },
-  { name: "Implied vol solver", stat: "INT", bonus: 5 },
-  { name: "Binomial pricer", stat: "INT", bonus: 4 },
-  { name: "Alpha research pipeline", stat: "AGI", bonus: 5 },
-  { name: "Portfolio optimiser", stat: "INT", bonus: 4 },
-];
+export const SHADOW_PRESETS = [];
 
 /* ---------- the System's voice ----------
    Written for this app rather than quoted from the manhwa. Lines from a
@@ -553,22 +365,10 @@ export function defaultSeason(startKey, endKey) {
    that is the only thing that rings when the app is closed. Times are the
    defaults; they are editable in the app.                                     */
 
-export const DEFAULT_REMINDERS = [
-  { id: "wake", title: "Rise", body: "The day is generated. Open the board.", time: "05:00", mins: 15, on: true },
-  { id: "train", title: "Dungeon", body: "Training block. Log every set.", time: "06:00", mins: 75, on: true },
-  { id: "study", title: "Deep work", body: "The block that actually moves the rating.", time: "09:30", mins: 120, on: true },
-  { id: "checkin", title: "Midday check", body: "Where does the board stand.", time: "13:00", mins: 10, on: false },
-  { id: "close", title: "Close the day", body: "Anything still open closes in three hours.", time: "19:00", mins: 15, on: true },
-  { id: "sleep", title: "Lights out", body: "Seven hours is part of the work.", time: "22:00", mins: 10, on: true },
-];
+export const DEFAULT_REMINDERS = [];
 
 /* ---------- focus ----------
    The app cannot block anything. It can hold you to a number you set yourself
    and show you the cost, which is a different mechanism and an honest one.     */
 
-export const FOCUS_TARGETS = [
-  { id: "instagram", label: "Instagram", cap: 20 },
-  { id: "chess", label: "Chess", cap: 30 },
-  { id: "youtube", label: "YouTube", cap: 30 },
-  { id: "other", label: "Other scrolling", cap: 15 },
-];
+export const FOCUS_TARGETS = [];

@@ -151,6 +151,7 @@ function instantiate(template, prog, idx, dk) {
     stat: template.stat,
     xp: template.xp,
     slot: template.slot,
+    required: template.required === true,
     done: false,
     penalty: false,
   };
@@ -206,6 +207,7 @@ export const CLEAR_THRESHOLD = 0.7;
 export function isDayCleared(day, mode) {
   const avail = dayAvailableXp(day);
   if (avail === 0) return false;
+  if (day.quests.some((q) => q.required && !q.done && !q.excused)) return false;
   const bar = typeof day.bar === "number"
     ? day.bar
     : ((DIFFICULTY[mode] || {}).clearBar ?? CLEAR_THRESHOLD);
@@ -261,21 +263,25 @@ export function gradeDay(day, mode) {
   if (avail === 0) return { ratio: 1, shortfall: 0, grade: "void", bar: 1, needed: 0 };
   const earned = day.quests.filter((q) => q.done && !q.excused).reduce((s, q) => s + q.xp, 0);
   const ratio = Math.min(1, earned / avail);
+  const requiredMissed = day.quests.filter((q) => q.required && !q.done && !q.excused);
   // A day carries the bar it was generated under, so raising the standard
   // tomorrow can never retroactively fail a day already won.
   const bar = typeof day.bar === "number" ? day.bar : difficultyOf(mode).clearBar;
 
   // Clear the day and you owe nothing, however much of the board is left.
   // Below the bar, a total collapse still reads as a full shortfall of 1.
-  const shortfall = ratio >= bar ? 0 : (bar - ratio) / bar;
+  const clears = ratio >= bar && requiredMissed.length === 0;
+  const requiredXp = requiredMissed.reduce((sum, q) => sum + q.xp, 0);
+  const shortfall = clears ? 0 : Math.max(ratio >= bar ? requiredXp / avail : (bar - ratio) / bar, 1 / avail);
 
   let grade;
-  if (ratio >= CLEAN_BAR) grade = "clean";
+  if (requiredMissed.length) grade = ratio >= bar * 0.5 ? "slipped" : "broken";
+  else if (ratio >= CLEAN_BAR) grade = "clean";
   else if (ratio >= bar) grade = "held";
   else if (ratio >= bar * 0.5) grade = "slipped";
   else grade = "broken";
 
-  return { ratio, shortfall, grade, bar, needed: Math.max(0, Math.ceil(avail * bar) - earned) };
+  return { ratio, shortfall, grade, bar, needed: Math.max(requiredXp, Math.max(0, Math.ceil(avail * bar) - earned)), requiredMissed: requiredMissed.map(q => q.key) };
 }
 
 /**
@@ -1098,12 +1104,9 @@ export function journeyEvents(state, todayKey) {
    log does not depend on.                                                      */
 
 export const DEFAULT_SCHEDULE = {
-  wake: "05:00",
-  sleep: "22:00",
-  fixed: [
-    { id: "f-train", label: "Train", start: "06:00", mins: 75, kind: "train" },
-    { id: "f-work", label: "Desk block", start: "09:30", mins: 240, kind: "work" },
-  ],
+  wake: "07:00",
+  sleep: "23:00",
+  fixed: [],
   questMins: 45,
 };
 

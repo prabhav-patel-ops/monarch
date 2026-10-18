@@ -83,7 +83,7 @@ t("levelFromTotalXp tolerates negative input", () => {
 t("a full weekday is worth roughly one early level", () => {
   const day = generateDay("2026-09-01", DEFAULT_TEMPLATES, DEFAULT_PROGRESSION, null);
   const avail = dayAvailableXp(day);
-  assert.ok(avail > 200 && avail < 400, `weekday xp was ${avail}`);
+  assert.ok(avail > 200 && avail <= 400, `weekday xp was ${avail}`);
   assert.ok(levelFromTotalXp(avail).level >= 2, "first full day should reach level 2");
 });
 
@@ -153,9 +153,27 @@ t("weekday and Sunday templates differ, and Sunday pays for rest", () => {
   assert.ok(rest && rest.xp > 0, "resting is worth xp");
 });
 
-t("routine details are generated for Whood, Hull and teasers", () => {
+t("tomorrow timetable is a low-XP compulsory gate on every day", () => {
+  Object.values(DEFAULT_TEMPLATES).forEach((templates) => {
+    const plan = templates.find((q) => q.key === "plan_tomorrow");
+    const sleep = templates.find((q) => q.key === "sleep");
+    assert.ok(plan, "every day includes tomorrow planning");
+    assert.equal(plan.required, true);
+    assert.equal(plan.xp, 5);
+    assert.ok(plan.slot < sleep.slot, "planning appears immediately before sleep");
+  });
+  const day = generateDay("2026-09-01", DEFAULT_TEMPLATES, DEFAULT_PROGRESSION, null);
+  day.quests.forEach((q) => (q.done = q.key !== "plan_tomorrow"));
+  assert.equal(isDayCleared(day), false);
+  assert.equal(gradeDay(day).grade, "slipped");
+  assert.deepEqual(gradeDay(day).requiredMissed, ["plan_tomorrow"]);
+  day.quests.find((q) => q.key === "plan_tomorrow").done = true;
+  assert.equal(isDayCleared(day), true);
+});
+
+t("generic routine details resolve local progression placeholders", () => {
   const day = generateDay("2026-09-01", DEFAULT_TEMPLATES, { cfBand: 1650, hullPages: 21, teasers: 4 }, null);
-  assert.match(day.quests.find((q) => q.key === "whood").detail, /focused hour/);
+  assert.match(day.quests.find((q) => q.key === "whood").detail, /focused block/);
   assert.match(day.quests.find((q) => q.key === "hull_eve").detail, /21/);
   assert.match(day.quests.find((q) => q.key === "teasers").detail, /4/);
 });
@@ -230,6 +248,7 @@ t("a day clears at 70 percent, not 100", () => {
   day.quests.forEach((q) => {
     if (acc / total < 0.72) { q.done = true; acc += q.xp; }
   });
+  day.quests.find((q) => q.required).done = true;
   assert.ok(dayEarnedXp(day) < total, "not everything done");
   assert.equal(isDayCleared(day), true);
 });
@@ -443,21 +462,21 @@ t("every weekday is covered by a template", () => {
     const cloned = JSON.parse(JSON.stringify(s));
     const mon = cloned.templates[1];
     const whood = mon.find((q) => q.key === "whood");
-    assert.ok(whood.detail && whood.detail.includes("focused hour"));
+    assert.ok(whood.detail && whood.detail.includes("focused block"));
   });
 
-  t("generated weekday quests show the Startup block, teaser count and page target", () => {
+  t("generated weekday quests show neutral public defaults and resolved counts", () => {
     const s = emptyState();
     const day = generateDay("2026-08-31", s.templates, s.progression, null);
     const find = (k) => day.quests.find((q) => q.key === k);
-    assert.equal(find("whood").title, "Startup block");
-    assert.match(find("whood").detail, /focused hour/);
-    assert.match(find("teasers").detail, /2 from Brainstellar/);
+    assert.equal(find("whood").title, "Focus block");
+    assert.match(find("whood").detail, /focused block/);
+    assert.match(find("teasers").detail, /2 deliberate/);
     assert.match(find("hull_eve").detail, /15 pages/);
     day.quests.forEach((q) => assert.ok(q.detail.length > 0, `${q.key} has no detail`));
   });
 
-  t("saved Whood quest becomes Startup without losing today's completion or XP", () => {
+  t("migration preserves private routine text while adding the compulsory plan", () => {
     const today = dateKey(new Date());
     const old = emptyState();
     old.templatesVersion = TEMPLATES_VERSION - 1;
@@ -474,20 +493,21 @@ t("every weekday is covered by a template", () => {
 
     const fixed = hydrate(JSON.parse(JSON.stringify(old)));
     const renamed = fixed.days[today].quests.find((q) => q.id === id);
-    assert.equal(renamed.title, "Startup block");
-    assert.match(renamed.detail, /on a startup/);
+    assert.equal(renamed.title, "Whood product block");
+    assert.match(renamed.detail, /focused hour on the product/);
     assert.equal(renamed.done, true);
     assert.equal(renamed.xp, xp);
     assert.equal(renamed.id, id);
     assert.equal(fixed.days[today].quests.filter((q) => q.id === id).length, 1);
     const penalty = fixed.days[today].quests.find((q) => q.id === "carried-startup");
-    assert.equal(penalty.title, "Startup block");
+    assert.equal(penalty.title, "Whood product block");
     assert.equal(penalty.xp, 105);
     assert.equal(penalty.penalty, true);
-    assert.equal(fixed.templates[parseKey(today).getDay()].find((q) => q.key === key).title, "Startup block");
+    assert.equal(fixed.templates[parseKey(today).getDay()].find((q) => q.key === key).title, "Focus block");
+    assert.equal(fixed.days[today].quests.find((q) => q.key === "plan_tomorrow").required, true);
   });
 
-  t("a pre-v2 save is migrated and its blank details repaired", () => {
+  t("a historical board is never rewritten during privacy-safe migration", () => {
     const broken = emptyState();
     delete broken.templatesVersion;
     broken.days["2026-08-31"] = {
@@ -499,11 +519,11 @@ t("every weekday is covered by a template", () => {
 
     const fixed = hydrate(JSON.parse(JSON.stringify(broken)));
     assert.equal(fixed.templatesVersion, TEMPLATES_VERSION, "migrated up to the current version");
-    assert.match(fixed.days["2026-08-31"].quests[0].detail, /focused hour/);
+    assert.equal(fixed.days["2026-08-31"].quests[0].detail, "");
     assert.equal(fixed.days["2026-08-31"].quests[0].done, true, "progress must be preserved");
   });
 
-  t("a quest added to the template appears on today and ahead, never on a closed day", () => {
+  t("the compulsory plan appears on today and ahead, never on a closed day", () => {
     const today = dateKey(new Date());
     const past = shiftKey(today, -2);
     const ahead = shiftKey(today, 1);
@@ -520,17 +540,14 @@ t("every weekday is covered by a template", () => {
     [past, today, ahead].forEach((k) => (old.days[k] = day(k)));
 
     const fixed = hydrate(JSON.parse(JSON.stringify(old)));
-    const has = (k) => fixed.days[k].quests.some((q) => q.key === "office");
+    const has = (k) => fixed.days[k].quests.some((q) => q.key === "plan_tomorrow");
 
     assert.equal(has(past), false, "a day already graded is left exactly as it was");
     assert.equal(dayAvailableXp(fixed.days[past]), 10, "so its denominator cannot move either");
 
-    const weekday = (k) => [1, 2, 3, 4, 5].includes(parseKey(k).getDay());
-    if (weekday(today)) assert.ok(has(today), "today picks it up");
-    if (weekday(ahead)) assert.ok(has(ahead), "and so does tomorrow");
-
-    const office = fixed.days[weekday(today) ? today : ahead].quests.find((q) => q.key === "office");
-    if (office) assert.equal(office.done, false, "it arrives undone, to be earned");
+    assert.ok(has(today), "today picks it up");
+    assert.ok(has(ahead), "and so does tomorrow");
+    assert.equal(fixed.days[today].quests.find((q) => q.key === "plan_tomorrow").done, false);
     assert.equal(fixed.days[today].quests.find((q) => q.key === "wake").done, true, "progress is untouched");
   });
 
@@ -554,7 +571,7 @@ t("every weekday is covered by a template", () => {
       "a carried quest sorts to the end rather than breaking the comparison");
   });
 
-  t("a reprice reaches today and ahead, and never a day already graded", () => {
+  t("migration never reprices private quests and only adds the compulsory plan", () => {
     const today = dateKey(new Date());
     const past = shiftKey(today, -3);
     const ahead = shiftKey(today, 2);
@@ -576,20 +593,19 @@ t("every weekday is covered by a template", () => {
     assert.equal(xp(past, "cf"), 55, "a closed day keeps the price it was graded under");
     assert.equal(xp(past, "hull_eve"), 45, "rewriting it would move penalties already taken");
 
-    const todayWhood = DEFAULT_TEMPLATES[parseKey(today).getDay()].find((q) => q.key.startsWith("whood"));
-    const aheadTemplate = DEFAULT_TEMPLATES[parseKey(ahead).getDay()];
-    const aheadQuest = aheadTemplate.find((q) => q.key === "hull_eve") || aheadTemplate[0];
-    assert.equal(xp(today, todayWhood.key), todayWhood.xp, "today follows the current price");
-    assert.equal(xp(ahead, aheadQuest.key), aheadQuest.xp, "so does a day not yet reached");
-    const doneWake = fixed.days[today].quests.find((q) => q.key === "wake");
-    assert.ok(doneWake, "the existing quest survives the reprice");
+    assert.equal(xp(today, "hull_eve"), 45, "today keeps its private price");
+    assert.equal(xp(ahead, "hull_eve"), 45, "future saved boards keep their private price");
+    assert.equal(fixed.days[today].quests.find((q) => q.key === "plan_tomorrow").xp, 5);
+    assert.equal(fixed.days[ahead].quests.find((q) => q.key === "plan_tomorrow").required, true);
+    const existingContest = fixed.days[today].quests.find((q) => q.key === "cf");
+    assert.equal(existingContest.done, true, "the existing private quest survives untouched");
   });
 
-  t("Startup is optional to Codeforces and the placeholder block is absent", () => {
+  t("the generic public focus block is present and no compulsory contest is invented", () => {
     Object.entries(DEFAULT_TEMPLATES).forEach(([d, quests]) => {
       const keys = quests.map((q) => q.key);
-      assert.ok(keys.some((k) => k.startsWith("whood")), `day ${d} has Startup`);
-      assert.equal(quests.find((q) => q.key.startsWith("whood")).title, "Startup block");
+      assert.ok(keys.some((k) => k.startsWith("whood")), `day ${d} has a focus block`);
+      assert.equal(quests.find((q) => q.key.startsWith("whood")).title, "Focus block");
       assert.ok(!keys.some((k) => k === "cf" || k.startsWith("cf_")), `day ${d} has no compulsory Codeforces`);
       assert.ok(keys.includes("projects_maths"), `day ${d} has Projects and Maths`);
     });
@@ -1144,14 +1160,14 @@ t("the journey is derived from the log, newest first", () => {
   const state = {
     hunter: { createdAt: "2026-08-01" }, days: {}, statXp: {}, streak: { best: 0 },
     shadows: [{ id: 1, name: "Order book", date: "2026-08-20", stat: "INT", bonus: 5 }],
-    gates: [{ id: "g", name: "Baruch", rank: "S", date: "2026-09-01", cleared: true, clearedOn: "2026-08-25" }],
+    gates: [{ id: "g", name: "Example gate", rank: "S", date: "2026-09-01", cleared: true, clearedOn: "2026-08-25" }],
     seasons: [],
   };
   const ev = journeyEvents(state, "2026-08-31");
   assert.equal(ev[ev.length - 1].kind, "start", "awakening is the oldest entry");
   assert.deepEqual(ev.map((e) => e.date), [...ev.map((e) => e.date)].sort().reverse(), "newest first");
   assert.ok(ev.some((e) => e.kind === "shadow" && e.title === "Order book"));
-  assert.ok(ev.some((e) => e.kind === "gate" && e.title === "Baruch"));
+  assert.ok(ev.some((e) => e.kind === "gate" && e.title === "Example gate"));
 });
 
 /* ---------- schedule ---------- */
@@ -1226,7 +1242,7 @@ t("a day already past the bar raises nothing, however late it is", () => {
 
 t("every alert names a tab that can actually close it", () => {
   const s = alertState(0.2);
-  s.gates = [{ id: "g1", name: "Baruch", rank: "S", date: "2026-09-01" }];
+  s.gates = [{ id: "g1", name: "Example gate", rank: "S", date: "2026-09-01" }];
   const out = pendingAlerts(s, "2026-08-31", 21 * 60);
   assert.ok(out.length >= 2);
   out.forEach((a) => assert.ok(a.action && a.title && a.body, `${a.id} is actionable`));
@@ -1273,9 +1289,9 @@ t("commas and semicolons in a title are escaped rather than splitting the field"
 });
 
 t("a gate export warns the day before, not on the morning it is due", () => {
-  const ics = gatesIcs([{ id: "g", name: "Baruch", rank: "S", date: "2026-09-30" }]);
+  const ics = gatesIcs([{ id: "g", name: "Example gate", rank: "S", date: "2026-09-30" }]);
   assert.ok(ics.includes("TRIGGER:-PT1440M"));
-  assert.ok(ics.includes("SUMMARY:Gate closes: Baruch"));
+  assert.ok(ics.includes("SUMMARY:Gate closes: Example gate"));
 });
 
 t("an event crossing an hour boundary still ends at a real time", () => {

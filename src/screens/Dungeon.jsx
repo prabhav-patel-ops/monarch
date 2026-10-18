@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { Win, Spark } from "../ui.jsx";
-import { FOODS, TRAINING, MISSION } from "../data.js";
+import { FOODS, TRAINING } from "../data.js";
 import { macroTotals, scaleFood, parseKey, smooth, daysBetween, progressionFor, sessionComplete } from "../engine.js";
 import ScanMeal from "./ScanMeal.jsx";
 

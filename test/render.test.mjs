@@ -40,7 +40,7 @@ function seeded() {
   s.statXp = totals.statXp;
   s.streak = computeStreak(s.days, todayKey);
 
-  s.shadows = [{ id: "s1", name: "C++ limit order book engine", stat: "AGI", bonus: 6, date: "2026-08-14" }];
+  s.shadows = [{ id: "s1", name: "Sample project", stat: "AGI", bonus: 6, date: "2026-08-14" }];
   s.cfHistory = [
     { date: "2026-08-02", rating: 1327 },
     { date: "2026-08-16", rating: 1361 },
@@ -103,11 +103,11 @@ t("Quests survives a day with no log at all", () => {
   assert.match(html, /No log for this day|quest board/i);
 });
 
-t("Status shows level, rank and the mission day", () => {
+t("Status shows level and rank without a bundled personal mission", () => {
   const html = renderToStaticMarkup(React.createElement(Status, props(seeded())));
   assert.match(html, /Level/);
   assert.match(html, /Rank [EDCBAS]/);
-  assert.match(html, /Day \d+ of 150/);
+  assert.doesNotMatch(html, /Day \d+ of 150/);
 });
 
 t("Status reports the shadow bonus on the right stat", () => {
@@ -135,15 +135,14 @@ t("Fuel totals reflect logged meals", () => {
   assert.ok(html.includes("Strength dungeon"), "defaults to the Train tab");
 });
 
-t("Gates lists seeded gates with their ranks", () => {
+t("Gates renders safely when no public gates are bundled", () => {
   const html = renderToStaticMarkup(React.createElement(Gates, props(seeded())));
-  assert.match(html, /Baruch MFE/);
-  assert.match(html, /Operation/);
+  assert.match(html, /Gate|deadline|No open/i);
 });
 
 t("Shadows lists an extracted project and its bonus", () => {
   const html = renderToStaticMarkup(React.createElement(Shadows, props(seeded())));
-  assert.match(html, /limit order book/);
+  assert.match(html, /Sample project/);
   assert.match(html, /\+6% AGI/);
 });
 
@@ -210,7 +209,7 @@ t("a partial save renders every screen without throwing", () => {
 t("System renders its empty state with prompt chips", () => {
   const html = renderToStaticMarkup(React.createElement(SystemChat, props(seeded())));
   assert.match(html, /Ask it something/);
-  assert.match(html, /brainteaser at interview level/);
+  assert.match(html, /smallest useful hint/);
 });
 
 t("System survives a state with no days generated", () => {

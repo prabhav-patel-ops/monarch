@@ -1,10 +1,10 @@
 import React from "react";
 import { Win, StatRadar, Spark, useCountUp } from "../ui.jsx";
 import { RuneRing, MonarchCrest } from "../art.jsx";
-import { MISSION, quoteFor } from "../data.js";
+import { quoteFor } from "../data.js";
 import {
   STATS, STAT_META, levelFromTotalXp, rankFromLevel, nextRankAt,
-  statTier, missFlags, daysBetween, dateKey, isDayCleared,
+  statTier, missFlags, isDayCleared,
 } from "../engine.js";
 
 export default function Status({ state, todayKey }) {
@@ -24,12 +24,13 @@ export default function Status({ state, todayKey }) {
   const flags = missFlags(state.days, todayKey);
   const maxTier = Math.max(...Object.values(tiers), 1);
 
-  const missionDay = daysBetween(MISSION.bodyStart, todayKey) + 1;
-  const missionPct = Math.max(0, Math.min(100, (missionDay / MISSION.bodyDays) * 100));
-
   const weights = state.body.weights || [];
   const latest = weights.length ? weights[weights.length - 1].kg : null;
-  const lost = latest != null ? +(MISSION.startWeight - latest).toFixed(1) : null;
+  const startingWeight = weights.length ? weights[0].kg : null;
+  const lost = latest != null && startingWeight != null ? +(startingWeight - latest).toFixed(1) : null;
+  const ratings = state.cfHistory || [];
+  const firstRating = ratings.length ? ratings[0].rating : null;
+  const latestRating = ratings.length ? ratings[ratings.length - 1].rating : null;
 
   const shadowBonus = {};
   STATS.forEach((s) => {
@@ -126,7 +127,7 @@ export default function Status({ state, todayKey }) {
         </p>
       </Win>
 
-      <Win title="Codeforces" right={`${MISSION.cfStart} → ${MISSION.cfGoal}`}>
+      <Win title="Codeforces" right={ratings.length > 1 ? `${firstRating} → ${latestRating}` : "Local history"}>
         {state.cfHistory && state.cfHistory.length > 1 ? (
           <>
             <Spark values={state.cfHistory.map((h) => h.rating)} color="#3fe0a8" />
@@ -137,7 +138,7 @@ export default function Status({ state, todayKey }) {
             <div className="kv">
               <span>Gain since start</span>
               <b style={{ color: "var(--agi)" }}>
-                +{state.cfHistory[state.cfHistory.length - 1].rating - MISSION.cfStart}
+                {latestRating - firstRating >= 0 ? "+" : ""}{latestRating - firstRating}
               </b>
             </div>
           </>
@@ -150,24 +151,17 @@ export default function Status({ state, todayKey }) {
         </div>
       </Win>
 
-      <Win title="Operation −12 kg" right={`Day ${missionDay} of ${MISSION.bodyDays}`}>
-        <div className="bar">
-          <i style={{ width: `${missionPct}%` }} />
-        </div>
+      <Win title="Weight trend" right={`${weights.length} local log${weights.length === 1 ? "" : "s"}`}>
         <div style={{ marginTop: 10 }}>
           <div className="kv">
             <span>Weight</span>
             <b>{latest != null ? `${latest} kg` : "not logged"}</b>
           </div>
           <div className="kv">
-            <span>Down from start</span>
+            <span>Change from first local log</span>
             <b style={{ color: lost > 0 ? "var(--agi)" : "var(--text)" }}>
               {lost != null ? `${lost} kg` : "—"}
             </b>
-          </div>
-          <div className="kv">
-            <span>Target</span>
-            <b>{MISSION.goalWeight} kg</b>
           </div>
         </div>
       </Win>

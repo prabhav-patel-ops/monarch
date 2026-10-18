@@ -1,11 +1,9 @@
 import {
   DEFAULT_PROGRESSION, DEFAULT_TEMPLATES, MISSION,
-  SEED_GATES, SEED_SHADOWS, SEED_SESSIONS, SEEDS_VERSION,
+  SEED_GATES, SEED_SHADOWS, SEEDS_VERSION,
   DEFAULT_REMINDERS, FOCUS_TARGETS,
 } from "./data.js";
-import { STATS, resolveDetail, DEFAULT_SCHEDULE, dateKey, parseKey } from "./engine.js";
-import { SEED_SAVE } from "./seed-save.js";
-import { applyConfirmedRecovery } from "./confirmed-recovery.js";
+import { STATS, resolveDetail, DEFAULT_SCHEDULE, dateKey } from "./engine.js";
 
 export const KEY = "monarch.v1";
 export const META_KEY = "monarch.v1.meta";
@@ -26,12 +24,12 @@ const MAX_LINEAGE = 100;
 /* Bump when DEFAULT_TEMPLATES changes shape OR when quest XP is repriced.
    Saved templates below this are replaced on load, because an old save can
    carry stale quest copy and stale prices. */
-export const TEMPLATES_VERSION = 10;
+export const TEMPLATES_VERSION = 12;
 
 const DIFFICULTY_KEYS = ["normal", "hard", "monarch"];
 
 function bundledState() {
-  return hydrate(applyConfirmedRecovery(SEED_SAVE));
+  return emptyState();
 }
 
 export function emptyState() {
@@ -87,15 +85,6 @@ export function emptyState() {
  * Backfill sessions that were trained before the app logged loads. Anything
  * already recorded for that day wins — a seed never overwrites real input.
  */
-function applySeeds(state) {
-  Object.keys(SEED_SESSIONS).forEach((dk) => {
-    const seed = JSON.parse(JSON.stringify(SEED_SESSIONS[dk]));
-    const cur = state.body.training[dk] || { done: [], sets: {} };
-    state.body.training[dk] = { ...cur, done: cur.done || [], sets: { ...seed, ...(cur.sets || {}) } };
-  });
-  state.seedsVersion = SEEDS_VERSION;
-}
-
 /**
  * Merge a saved blob over a fresh state. Nested sections are merged one level
  * deeper so a backup written by an older version cannot leave a hole that
@@ -124,7 +113,7 @@ export function hydrate(parsed) {
       sets: e.sets && typeof e.sets === "object" ? e.sets : {},
     };
   });
-  if ((parsed.seedsVersion || 0) < SEEDS_VERSION) applySeeds(merged);
+  merged.seedsVersion = SEEDS_VERSION;
 
   /* Sections that arrived after the first release. A save written before them
      has no key at all, so each needs a floor rather than a shallow merge. */
@@ -159,69 +148,43 @@ export function hydrate(parsed) {
   const caps = new Map((parsed.settings?.focusCaps || []).map((c) => [c.id, c]));
   merged.settings.focusCaps = FOCUS_TARGETS.map((f) => ({ ...f, ...(caps.get(f.id) || {}) }));
 
-  /* --- migration ---
-     Templates saved before v2 were cloned with JSON.stringify, which drops
-     function values. Every dynamic detail line came back undefined, so quests
-     rendered with no rating band, page count or time. Replace those templates
-     and repair the detail lines on days already generated from them. */
+  /* Add the universal compulsory planning task without replacing a device's
+     private routine. Personal templates live only inside monarch.v1. */
   if ((parsed.templatesVersion || 0) < TEMPLATES_VERSION) {
-    merged.templates = JSON.parse(JSON.stringify(DEFAULT_TEMPLATES));
+    const privateTemplates = parsed.templates && typeof parsed.templates === "object"
+      ? JSON.parse(JSON.stringify(parsed.templates))
+      : JSON.parse(JSON.stringify(DEFAULT_TEMPLATES));
+    const required = Object.values(DEFAULT_TEMPLATES)
+      .flat()
+      .find((quest) => quest.key === "plan_tomorrow");
+
+    for (let weekday = 0; weekday < 7; weekday += 1) {
+      const list = Array.isArray(privateTemplates[weekday]) ? privateTemplates[weekday] : [];
+      const existing = list.find((quest) => quest.key === required.key);
+      if (existing) Object.assign(existing, required);
+      else list.push({ ...required });
+      list.sort((a, b) => (Number(a.slot) || 99) - (Number(b.slot) || 99));
+      privateTemplates[weekday] = list;
+    }
+
+    merged.templates = privateTemplates;
     merged.templatesVersion = TEMPLATES_VERSION;
-
-    const byKey = new Map();
-    Object.values(DEFAULT_TEMPLATES).forEach((list) =>
-      list.forEach((t) => byKey.set(t.key, t))
-    );
-    const startupKeys = new Set(["whood", "whood_weekend", "whood_upsolve"]);
-
-    /* Reprice today and anything ahead of it, never a day that has closed. A
-       finished day was graded and charged against the prices in force at the
-       time; rewriting those would move penalties that were already taken and
-       make the calendar disagree with the levels it produced. */
     const today = dateKey(new Date());
 
     Object.entries(merged.days || {}).forEach(([dk, day]) => {
-      /* Open boards must follow the current routine. Closed days retain their
-         historical grading, while obsolete compulsory quests disappear from
-         today and future boards. Optional Codeforces contests are side quests
-         and are therefore unaffected. */
-      if (dk >= today) {
-        const obsolete = new Set(["cf", "cf_virtual", "cf_upsolve", "study_third", "maths_night"]);
-        day.quests = (day.quests || []).filter((q) => q.penalty || !obsolete.has(q.key));
-      }
-      (day.quests || []).forEach((q) => {
-        const t = byKey.get(q.key);
-        if (!t) return;
-        if (!q.detail || (dk >= today && startupKeys.has(q.key)))
-          q.detail = resolveDetail(t.detail, merged.progression);
-        if (t.title && q.title !== t.title && (!q.penalty || startupKeys.has(q.key))) q.title = t.title;
-        if (dk >= today && !q.penalty && typeof t.xp === "number") q.xp = t.xp;
-        if (dk >= today && !q.penalty && typeof t.slot === "number") q.slot = t.slot;
-      });
-
-      /* A quest added to the template after a board was generated is missing
-         from it entirely, so repricing alone would never surface it. Today
-         and anything ahead pick it up; a day that has closed is left exactly
-         as it was graded. */
       if (dk < today) return;
-      const weekday = parseKey(dk).getDay();
-      const template = merged.templates[weekday] || [];
-      const present = new Set((day.quests || []).map((q) => q.key));
-
-      template.forEach((t, i) => {
-        if (present.has(t.key)) return;
-        day.quests.push({
-          id: `${dk}#new${i}#${t.key}`,
-          key: t.key,
-          title: t.title,
-          detail: resolveDetail(t.detail, merged.progression),
-          stat: t.stat,
-          xp: t.xp,
-          slot: t.slot,
-          done: false,
-          penalty: false,
-        });
+      const quests = Array.isArray(day.quests) ? day.quests : [];
+      const existing = quests.find((quest) => quest.key === required.key && !quest.penalty);
+      if (existing) Object.assign(existing, required);
+      else quests.push({
+        id: `${dk}#required#${required.key}`,
+        ...required,
+        detail: resolveDetail(required.detail, merged.progression),
+        done: false,
+        excused: false,
+        penalty: false,
       });
+      day.quests = quests;
 
       /* Carried-over penalty quests keep a "penalty" slot rather than a
          number, so they sort to the end instead of NaN-ing the comparison. */
