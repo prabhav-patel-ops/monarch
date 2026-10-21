@@ -326,15 +326,15 @@ function Routines({ state, onRoutinePlan, flash }) {
   return (
     <Win title="Compulsory routines" right="0 XP each">
       <p className="faint" style={{ marginTop: 0 }}>
-        Import your routine plan to add recurring daily, weekly and special monthly tasks.
-        It stays in this device's private save and travels with your JSON backup.
+        Your recurring daily, weekly and special monthly routines are added automatically.
+        Completions stay in this device's private save and travel with your JSON backup.
         Every scheduled routine is required to clear its day. A separate streak tracks 30 days; bonus XP is off.
       </p>
       {(state.routinePlan?.tasks || []).map((task) => (
         <div className="kv" key={task.key}><span>{task.title}</span><b>{task.time || "Scheduled day"}</b></div>
       ))}
       <label className="field" style={{ marginTop: 16 }}>
-        <span>Import routine plan</span>
+        <span>Replace with another routine plan (optional)</span>
         <input type="file" accept=".json,application/json" onChange={async (event) => {
           const file = event.target.files?.[0];
           if (!file) return;
@@ -379,3 +379,4 @@ export default function Focus(props) {
     </>
   );
 }
+
