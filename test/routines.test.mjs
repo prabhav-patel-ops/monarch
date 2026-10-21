@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { plan } from "./routine-fixture.mjs";
-import { routineQuests, routineStreak, ensureRoutines } from "../src/routines.js";
+import { DEFAULT_ROUTINE_PLAN, routineQuests, routineStreak, ensureRoutines } from "../src/routines.js";
 import { generateDay, gradeDay, isDayCleared, shiftKey, dayEarnedXp, streakRecovery, dateKey } from "../src/engine.js";
 import { emptyState, hydrate, validateState } from "../src/store.js";
 import { dailyRemindersIcs } from "../src/calendar.js";
@@ -49,6 +49,8 @@ assert.equal(streakRecovery({ "2026-10-21": day, "2026-10-22": board("2026-10-22
 
 const today = dateKey(new Date());
 const state = emptyState();
+assert.equal(state.routinePlan.tasks.length, 5);
+assert.equal(state.routinePlan.tasks[0].key, "routine_morning_prayer");
 state.routinePlan = plan;
 state.days[today] = { date: today, generated: true, quests: [{ key: "personal", id: "personal", xp: 10, stat: "INT", done: true }] };
 state.days["2026-10-20"] = { date: "2026-10-20", quests: [] };
@@ -61,6 +63,13 @@ assert.equal(roundTrip.days[today].quests.find((q) => q.routine).done, true);
 assert.equal(roundTrip.days[today].quests.find((q) => q.key === "personal").done, true);
 ensureRoutines(roundTrip.days[today], plan);
 assert.equal(roundTrip.days[today].quests.filter((q) => q.routine).length, routineQuests(today, plan).length);
+
+const legacyWithoutPlan = emptyState();
+legacyWithoutPlan.routinePlan = null;
+legacyWithoutPlan.days[today] = { date: today, generated: true, quests: [] };
+const defaulted = hydrate(legacyWithoutPlan);
+assert.deepEqual(defaulted.routinePlan, DEFAULT_ROUTINE_PLAN);
+assert.equal(defaulted.days[today].quests.filter((q) => q.routine).length, routineQuests(today, DEFAULT_ROUTINE_PLAN).length);
 
 const history = {};
 for (let i = 0; i < 30; i++) {
@@ -81,3 +90,4 @@ assert.ok(ics.includes("T074000"));
 assert.equal((ics.match(/RRULE:FREQ=DAILY/g) || []).length, 2);
 assert.equal((ics.match(/BEGIN:VALARM/g) || []).length, 2);
 console.log("Routine schedules, compulsory gating, zero XP, migration, persistence, streak and calendar checks passed.");
+
