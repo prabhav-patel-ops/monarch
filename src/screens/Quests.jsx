@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { Win, Ico } from "../ui.jsx";
+import { routineStreak } from "../routines.js";
 import {
   DIFFICULTY, STAT_META, dayChargeableXp,
   dayExtras, rawExtraXp, extraCeiling, dayExtraXp, sideXp,
@@ -175,7 +176,10 @@ export default function Quests({ state, todayKey, onToggle, onExcuse, onAddExtra
     .reduce((sum, q) => sum + q.xp, 0);
   const pct = dailyGrade.ratio * 100;
   const cleared = dailyGrade.grade === "clean" || dailyGrade.grade === "held";
-  const normal = day.quests.filter((q) => !q.penalty).sort((a, b) => a.slot - b.slot);
+  const routines = day.quests.filter((q) => q.routine && !q.penalty).sort((a, b) => a.slot - b.slot);
+  const routinesLeft = routines.filter((q) => !q.done).length;
+  const routineRun = routineStreak(state.days, todayKey, state.routinePlan);
+  const normal = day.quests.filter((q) => !q.penalty && !q.routine).sort((a, b) => a.slot - b.slot);
   const penalties = day.quests.filter((q) => q.penalty);
   const mode = state.settings.difficulty;
   const numbers = state.settings.showNumbers;
@@ -240,6 +244,18 @@ export default function Quests({ state, todayKey, onToggle, onExcuse, onAddExtra
 
   return (
     <>
+      {routines.length > 0 && (
+        <Win title="Compulsory routines" tone={routinesLeft ? undefined : "accent"} right={`${routines.length - routinesLeft}/${routines.length} complete`}>
+          <p className="faint" style={{ marginTop: 0 }}>
+            Required to clear this day. Each completion earns 0 XP. These stay on their scheduled date.
+          </p>
+          {routines.map((q) => <QuestRow key={q.id} q={q} />)}
+          <p className="faint" style={{ marginBottom: 0 }}>
+            Routine streak: {routineRun} days · {Math.min(30, routineRun)}/30 toward a month of consistency.
+            {routineRun >= 30 ? " 30-day milestone reached." : ""} No bonus XP enabled.
+          </p>
+        </Win>
+      )}
       <Win tone={cleared ? "accent" : undefined} title="Daily quest" right={pretty(viewKey)}>
         <div className="xp-row">
           <div className="xp-level stat-num" style={{ fontSize: 26, color: cleared ? "var(--rune)" : "var(--text)" }}>
@@ -247,7 +263,9 @@ export default function Quests({ state, todayKey, onToggle, onExcuse, onAddExtra
             <span style={{ fontSize: 14, color: "var(--text-faint)" }}> / {avail} xp</span>
           </div>
           <div className="xp-frac">
-            {cleared ? "Day cleared" : `${dailyGrade.needed} xp to clear`}
+            {cleared ? "Day cleared" : routinesLeft && dailyGrade.needed === 0
+              ? `${routinesLeft} compulsory routines left`
+              : `${dailyGrade.needed} xp to clear${routinesLeft ? " + routines" : ""}`}
           </div>
         </div>
         <div className="bar"><i style={{ width: `${pct}%` }} /></div>

@@ -322,6 +322,33 @@ function Blocking() {
 
 /* ---------------- shell ---------------- */
 
+function Routines({ state, onRoutinePlan, flash }) {
+  return (
+    <Win title="Compulsory routines" right="0 XP each">
+      <p className="faint" style={{ marginTop: 0 }}>
+        Import your routine plan to add recurring daily, weekly and special monthly tasks.
+        It stays in this device's private save and travels with your JSON backup.
+        Every scheduled routine is required to clear its day. A separate streak tracks 30 days; bonus XP is off.
+      </p>
+      {(state.routinePlan?.tasks || []).map((task) => (
+        <div className="kv" key={task.key}><span>{task.title}</span><b>{task.time || "Scheduled day"}</b></div>
+      ))}
+      <label className="field" style={{ marginTop: 16 }}>
+        <span>Import routine plan</span>
+        <input type="file" accept=".json,application/json" onChange={async (event) => {
+          const file = event.target.files?.[0];
+          if (!file) return;
+          try {
+            if (file.size > 50000) throw new Error("This routine plan is too large.");
+            onRoutinePlan(JSON.parse(await file.text()));
+          } catch (error) { flash(error.message || "Could not import routines"); }
+          event.target.value = "";
+        }} />
+      </label>
+    </Win>
+  );
+}
+
 export default function Focus(props) {
   const [tab, setTab] = useState("focus");
   const soundOn = props.state.settings.soundOn;
@@ -329,7 +356,7 @@ export default function Focus(props) {
   return (
     <>
       <div className="seg">
-        {[["focus", "Focus"], ["leak", "Screen time"], ["remind", "Reminders"], ["block", "Blocking"]].map(([id, label]) => (
+        {[["focus", "Focus"], ["routines", "Routines"], ["leak", "Screen time"], ["remind", "Reminders"], ["block", "Blocking"]].map(([id, label]) => (
           <button key={id} data-on={tab === id} onClick={() => setTab(id)}>{label}</button>
         ))}
       </div>
@@ -346,6 +373,7 @@ export default function Focus(props) {
         </>
       )}
       {tab === "leak" && <Leak {...props} />}
+      {tab === "routines" && <Routines {...props} />}
       {tab === "remind" && <Reminders {...props} />}
       {tab === "block" && <Blocking />}
     </>

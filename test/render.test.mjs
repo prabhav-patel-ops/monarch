@@ -12,6 +12,7 @@ import Calendar from "../src/screens/Calendar.jsx";
 import Focus from "../src/screens/Focus.jsx";
 import Shadows from "../src/screens/Shadows.jsx";
 import SystemChat from "../src/screens/System.jsx";
+import { plan } from "./routine-fixture.mjs";
 
 const todayKey = "2026-08-31";
 let pass = 0;
@@ -261,6 +262,21 @@ t("the app shell reports when a local save is present", () => {
     if (original === undefined) delete globalThis.localStorage;
     else globalThis.localStorage = original;
   }
+});
+
+t("compulsory routines render separately with no completion XP and a monthly streak", () => {
+  const state = emptyState();
+  state.routinePlan = plan;
+  const key = "2026-10-21";
+  state.days[key] = generateDay(key, state.templates, state.progression, null, 0.7, plan);
+  state.days[key].quests.filter(q => !q.routine).forEach(q => q.done = true);
+  const html = renderToStaticMarkup(React.createElement(Quests, { ...props(state), todayKey: key }));
+  assert.match(html, /Compulsory routines/);
+  assert.match(html, /Special task/);
+  assert.match(html, /3 compulsory routines left/);
+  assert.match(html, /0\/30/);
+  assert.match(html, /No bonus XP enabled/);
+  assert.equal((html.match(/class="qxp">0 xp/g) || []).length, 3);
 });
 
 console.log(`\n${pass} passing`);

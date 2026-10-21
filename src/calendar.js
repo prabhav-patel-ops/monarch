@@ -118,18 +118,27 @@ export function wrapCalendar(eventLines, name = "MONARCH") {
 export function dailyRemindersIcs(startKey, reminders) {
   const events = reminders
     .filter((r) => r.on)
-    .flatMap((r) =>
-      vevent({
+    .flatMap((r) => {
+      let start = startKey;
+      const weekdays = r.weekdays;
+      if (weekdays?.length) {
+        const d = new Date(`${startKey}T12:00:00`);
+        for (let i = 0; i < 7 && !weekdays.includes(d.getDay()); i++) d.setDate(d.getDate() + 1);
+        start = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      }
+      return vevent({
         tag: r.id,
-        date: startKey,
+        date: start,
         time: r.time,
         mins: r.mins || 30,
         title: r.title,
         description: r.body || "",
-        rrule: r.rrule || "FREQ=DAILY",
+        rrule: r.rrule || (weekdays?.length && weekdays.length < 7
+          ? `FREQ=WEEKLY;BYDAY=${weekdays.map((d) => ["SU", "MO", "TU", "WE", "TH", "FR", "SA"][d]).join(",")}`
+          : "FREQ=DAILY"),
         alarmMins: 0,
-      })
-    );
+      });
+    });
   return wrapCalendar(events, "MONARCH — daily");
 }
 
