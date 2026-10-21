@@ -23,14 +23,14 @@ and **System** (chat).
 
 Every daily board ends with a 5 XP **Make tomorrow's timetable** quest immediately before sleep. It is a compulsory gate: the day cannot clear while it remains unfinished, even when the XP threshold has otherwise been reached.
 
-**Focus → Routines** imports a private routine-plan JSON file. Plans support
-daily/weekly tasks and special weekday occurrences within a month. Their tasks
-are compulsory and award **0 XP**. Installing a plan updates today's board
-without rewriting older history. Missed routines never become next-day penalty
-tasks. A separate routine streak tracks 30 days of completing every scheduled
-routine; bonus XP is off. Timed routines join Focus's calendar export and
-notifications while open. Plans and completions stay inside the device's save
-and its portable backup, with no personal routines in the public source.
+**Focus → Routines** shows the built-in daily/weekly routines and supports
+optional replacement through a routine-plan JSON file. Their tasks are
+compulsory and award **0 XP**. App updates add the built-in plan to existing
+devices without rewriting older history. Missed routines never become next-day
+penalty tasks. A separate routine streak tracks 30 days of completing every
+scheduled routine; bonus XP is off. Timed routines join Focus's calendar export
+and notifications while open. Completion history stays inside the device's
+save and portable backup.
 
 ## The quest engine
 
@@ -121,3 +121,4 @@ health log, ratings, deadlines, recovery snapshot, or exported save. A fresh
 installation starts with generic templates and empty history. An existing
 `monarch.v1` save remains the source of truth when the app updates; migrations
 add required app features without replacing the user's private routine or logs.
+

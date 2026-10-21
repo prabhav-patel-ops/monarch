@@ -6,6 +6,51 @@ const previousKey = (key) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
+// Built into Monarch so existing phone installations receive the routines on
+// their next reload; completion history still remains device-local.
+export const DEFAULT_ROUTINE_PLAN = {
+  version: 1,
+  start: "2026-10-21",
+  tasks: [
+    {
+      key: "routine_morning_prayer",
+      title: "Morning prayer",
+      detail: "Complete the morning prayer. Wednesday and the first Friday of each month use the special prayer.",
+      time: "07:00",
+      weekdays: [0, 1, 2, 3, 4, 5, 6],
+      variants: [
+        { weekdays: [3], title: "Wednesday special prayer", detail: "Complete the special Wednesday morning prayer." },
+        { weekdays: [5], monthWeek: 1, title: "First-Friday special prayer", detail: "Complete the special prayer for the first Friday of the month." },
+      ],
+    },
+    {
+      key: "routine_vitamin_d",
+      title: "Take vitamin D",
+      detail: "Take the daily vitamin D tablet in the morning.",
+      time: "07:40",
+      weekdays: [0, 1, 2, 3, 4, 5, 6],
+    },
+    {
+      key: "routine_thursday_mandir",
+      title: "Visit mandir",
+      detail: "Complete the weekly Thursday mandir visit.",
+      weekdays: [4],
+    },
+    {
+      key: "routine_sunday_moong",
+      title: "Eat moong with Sunday dinner",
+      detail: "Include moong in Sunday dinner.",
+      weekdays: [0],
+    },
+    {
+      key: "routine_wednesday_lasun",
+      title: "Eat lasun",
+      detail: "Include lasun on Wednesday.",
+      weekdays: [3],
+    },
+  ],
+};
+
 export function validateRoutinePlan(value) {
   if (!value || value.version !== 1 || !/^\d{4}-\d{2}-\d{2}$/.test(value.start || "") ||
       !Number.isFinite(localDate(value.start).getTime()) || !Array.isArray(value.tasks) || value.tasks.length > 30) {
@@ -57,6 +102,11 @@ export function ensureRoutines(day, plan) {
     if (existing) Object.assign(existing, task, { done: !!existing.done, excused: false });
     else day.quests.push(task);
   }
+  day.quests.sort((a, b) => {
+    const av = typeof a.slot === "number" ? a.slot : 99;
+    const bv = typeof b.slot === "number" ? b.slot : 99;
+    return av - bv;
+  });
 }
 
 // A calendar day counts only when every routine due that day is complete.
@@ -76,3 +126,4 @@ export function routineStreak(days, today, plan) {
   }
   return count;
 }
+
