@@ -4,6 +4,8 @@
    Everything here is unit-testable in plain node.
    ============================================================ */
 
+import { routineQuests } from "./routines.js";
+
 export const STATS = ["STR", "AGI", "INT", "PER", "VIT"];
 
 export const STAT_META = {
@@ -161,13 +163,14 @@ function instantiate(template, prog, idx, dk) {
  * Build the quest list for a date.
  * Carries forward any quest missed the previous day as a penalty quest.
  */
-export function generateDay(dk, templatesByWeekday, prog, prevDay, bar) {
+export function generateDay(dk, templatesByWeekday, prog, prevDay, bar, routinePlan) {
   const weekday = parseKey(dk).getDay();
   const templates = templatesByWeekday[weekday] || [];
   const quests = templates.map((t, i) => instantiate(t, prog, i, dk));
+  quests.push(...routineQuests(dk, routinePlan));
 
   if (prevDay && Array.isArray(prevDay.quests)) {
-    const missed = prevDay.quests.filter((q) => !q.done && !q.excused);
+    const missed = prevDay.quests.filter((q) => !q.done && !q.excused && !q.routine);
     missed.forEach((q, i) => {
       // A recurring quest is already on today's board. Completing that one
       // covers the missed task without showing two identical rows.
@@ -423,7 +426,7 @@ export function applyRatchet(days, endKey, prog, settings = {}) {
       if (stamped[stat] && k <= stamped[stat]) break;
       const d = days[k];
       if (!d) continue;
-      const qs = d.quests.filter((q) => q.stat === stat);
+      const qs = d.quests.filter((q) => q.stat === stat && !q.routine);
       if (!qs.length) continue;
       if (qs.every((q) => q.done)) run += 1;
       else break;
@@ -462,6 +465,8 @@ export function streakRecovery(days, missedKey, mode) {
   const nextDay = days[shiftKey(missedKey, 1)];
   const empty = { eligible: false, total: 0, done: 0, complete: false };
   if (missedKey < STREAK_RECOVERY_START || !missedDay?.generated || !nextDay?.generated || isDayCleared(missedDay, mode)) return empty;
+  // Date-specific routines cannot be made up by repeating them the next day.
+  if (missedDay.quests.some((q) => q.routine && !q.done)) return empty;
 
   const keys = [...new Set(missedDay.quests
     .filter((q) => !q.done && !q.excused)

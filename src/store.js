@@ -4,6 +4,7 @@ import {
   DEFAULT_REMINDERS, FOCUS_TARGETS,
 } from "./data.js";
 import { STATS, resolveDetail, DEFAULT_SCHEDULE, dateKey } from "./engine.js";
+import { ensureRoutines, validateRoutinePlan } from "./routines.js";
 
 export const KEY = "monarch.v1";
 export const META_KEY = "monarch.v1.meta";
@@ -46,6 +47,7 @@ export function emptyState() {
     progression: { ...DEFAULT_PROGRESSION },
     templates: JSON.parse(JSON.stringify(DEFAULT_TEMPLATES)),
     days: {},
+    routinePlan: null,
     streak: { current: 0, best: 0 },
     cfHistory: [],
     lastRatchet: null,
@@ -196,6 +198,11 @@ export function hydrate(parsed) {
     });
   }
 
+  const routineToday = dateKey(new Date());
+  merged.routinePlan = parsed.routinePlan ? validateRoutinePlan(parsed.routinePlan) : null;
+  Object.entries(merged.days).forEach(([key, day]) => {
+    if (key >= routineToday) ensureRoutines(day, merged.routinePlan);
+  });
   return merged;
 }
 

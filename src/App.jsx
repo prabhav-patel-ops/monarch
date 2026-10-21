@@ -22,6 +22,8 @@ import {
   burst, ring, floater, orb, combo as fxCombo, celebrate, collapse,
 } from "./fx.js";
 import { quoteFor } from "./data.js";
+import { routineQuests, ensureRoutines, validateRoutinePlan } from "./routines.js";
+import { scheduleWhileOpen } from "./platform.js";
 import Status from "./screens/Status.jsx";
 import Quests from "./screens/Quests.jsx";
 import Gates from "./screens/Gates.jsx";
@@ -97,7 +99,13 @@ export default function App() {
   const [recoveryNotice] = useState(() => initialLoad.current.recovery || null);
   const toastTimer = useRef(null);
 
-  const todayKey = useMemo(() => dateKey(new Date()), []);
+  const [todayKey, setTodayKey] = useState(() => dateKey(new Date()));
+  useEffect(() => {
+    const refresh = () => setTodayKey(dateKey(new Date()));
+    const timer = setInterval(refresh, 30000);
+    window.addEventListener("focus", refresh);
+    return () => { clearInterval(timer); window.removeEventListener("focus", refresh); };
+  }, []);
 
   const flash = useCallback((msg) => {
     setToast(msg);
@@ -201,13 +209,22 @@ export default function App() {
            standard it was graded under travels with it. */
         d.days[k] = generateDay(
           k, d.templates, d.progression, d.days[shiftKey(k, -1)],
-          earnedBar(d.days, k, d.settings.difficulty, d.hunter.createdAt)
+          earnedBar(d.days, k, d.settings.difficulty, d.hunter.createdAt), d.routinePlan
         );
       }
       return d;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [todayKey]);
+
+  // The calendar export owns alarms while closed; these are a bonus while open.
+  useEffect(() => {
+    const cancel = routineQuests(todayKey, state.routinePlan).filter((q) => q.time).map((q) => {
+      const reminder = state.settings.reminders?.find((r) => r.id === q.key);
+      return reminder?.on ? scheduleWhileOpen(reminder.time, q.title, q.detail, q.key) : () => {};
+    });
+    return () => cancel.forEach((stop) => stop());
+  }, [todayKey, state.settings.reminders, state.routinePlan]);
 
   /* ---- effects ---- */
 
@@ -244,6 +261,42 @@ export default function App() {
 
   /* ---- quests ---- */
 
+  const onRoutinePlan = useCallback((value) => {
+    if (writeBlocked) throw new Error("Reload or recover this device's save before adding routines.");
+    const plan = validateRoutinePlan(value);
+    // Start on installation if the file was prepared before this device used it.
+    plan.start = plan.start < todayKey ? todayKey : plan.start;
+    commit((d) => {
+      if (JSON.stringify(d.routinePlan?.tasks) === JSON.stringify(plan.tasks)) plan.start = d.routinePlan.start;
+      d.routinePlan = plan;
+      Object.entries(d.days).forEach(([key, day]) => { if (key >= todayKey) ensureRoutines(day, plan); });
+      const reminders = d.settings.reminders || [];
+      const ids = new Set(plan.tasks.map((q) => q.key));
+      d.settings.reminders = reminders.filter((r) => !r.routine || ids.has(r.id));
+      plan.tasks.filter((q) => q.time).forEach((q) => {
+        if (!d.settings.reminders.some((r) => r.id === q.key)) d.settings.reminders.push({
+          id: q.key, title: q.title, time: q.time, mins: 5, on: true, routine: true,
+          body: q.detail, weekdays: q.weekdays,
+        });
+      });
+      return d;
+    });
+    flash("Compulsory routines added");
+  }, [commit, todayKey, flash, writeBlocked]);
+
+  // The fragment is handled locally and removed after installation; routine
+  // details never go in a request to the public hosting server.
+  useEffect(() => {
+    if (!window.location.hash.startsWith("#routines=")) return;
+    try {
+      const encoded = window.location.hash.slice(10);
+      if (encoded.length > 50000) throw new Error("This routine link is too large.");
+      const bytes = Uint8Array.from(atob(encoded.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+      onRoutinePlan(JSON.parse(new TextDecoder().decode(bytes)));
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    } catch (error) { flash(error.message || "Could not install routines"); }
+  }, [onRoutinePlan, flash]);
+
   const onToggle = useCallback(
     (dk, qid) => {
       const before = stateRef.current?.days?.[dk]?.quests?.find((x) => x.id === qid);
@@ -259,8 +312,8 @@ export default function App() {
       });
       if (clearing) {
         if (stateRef.current?.settings?.soundOn) chime("quest");
-        questFx(before);
-        flash(`${before.stat} +${before.xp}`);
+        if (!before.routine) questFx(before);
+        flash(before.routine ? "Compulsory routine complete" : `${before.stat} +${before.xp}`);
       }
     },
     [commit, flash, questFx]
@@ -601,7 +654,7 @@ export default function App() {
   const rank = rankFromLevel(level);
 
   const shared = {
-    state, todayKey, onToggle, onExcuse, onAddGate, onClearGate, onDeleteGate, onLogRating,
+    state, todayKey, onToggle, onExcuse, onAddGate, onClearGate, onDeleteGate, onLogRating, onRoutinePlan,
     onToggleExercise, onLogSets, onLogCardio, onRenameExercise,
     onAddMeal, onRemoveMeal, onSetWater, onLogWeight, onLogWaist, onLogSleep,
     onExtract, onDismiss, onSettings, onImport, onReset, onRestoreRecovery, onProgression, flash,
