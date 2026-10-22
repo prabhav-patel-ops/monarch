@@ -19,15 +19,6 @@ export const DEFAULT_PROGRESSION = {
    slot drives ordering through the day.
    xp is face value; shadows multiply it at award time.        */
 
-const PLAN_TOMORROW = {
-  key: "plan_tomorrow",
-  title: "Make tomorrow's timetable",
-  detail: "Before sleeping, write tomorrow's timetable. This compulsory gate decides whether the day clears.",
-  stat: "PER",
-  xp: 5,
-  slot: 11.5,
-  required: true,
-};
 const START_DAY = { key: "wake", title: "Start the day", detail: "Begin intentionally.", stat: "VIT", xp: 10, slot: 1 };
 const MOVEMENT = { key: "gym", title: "Movement block", detail: "Complete the movement planned on this device.", stat: "STR", xp: 45, slot: 2 };
 const NUTRITION = { key: "protein", title: "Nutrition check", detail: "Meet the nutrition target stored on this device.", stat: "VIT", xp: 25, slot: 3 };
@@ -40,9 +31,9 @@ const PROJECT = { key: "projects_maths", title: "Project block", detail: "Advanc
 const REVIEW = { key: "review", title: "Weekly review", detail: "Review the week and plan the next one.", stat: "VIT", xp: 35, slot: 11 };
 const CLOSE_DAY = { key: "sleep", title: "Close the day", detail: "Finish at the bedtime stored on this device.", stat: "VIT", xp: 15, slot: 12 };
 
-const WEEKDAY = [START_DAY, MOVEMENT, NUTRITION, FOCUS, PROBLEMS, WORK, CAREER, STUDY, PROJECT, PLAN_TOMORROW, CLOSE_DAY];
-const SATURDAY = [START_DAY, MOVEMENT, NUTRITION, { ...FOCUS, key: "whood_weekend" }, { ...PROBLEMS, xp: 30 }, PROJECT, PLAN_TOMORROW, CLOSE_DAY];
-const SUNDAY = [START_DAY, { key: "rest", title: "Recovery block", detail: "Take the recovery planned on this device.", stat: "VIT", xp: 40, slot: 2 }, NUTRITION, { ...FOCUS, key: "whood_upsolve" }, { ...PROBLEMS, xp: 30 }, PROJECT, REVIEW, PLAN_TOMORROW, CLOSE_DAY];
+const WEEKDAY = [START_DAY, MOVEMENT, NUTRITION, FOCUS, PROBLEMS, WORK, CAREER, STUDY, PROJECT, CLOSE_DAY];
+const SATURDAY = [START_DAY, MOVEMENT, NUTRITION, { ...FOCUS, key: "whood_weekend" }, { ...PROBLEMS, xp: 30 }, PROJECT, CLOSE_DAY];
+const SUNDAY = [START_DAY, { key: "rest", title: "Recovery block", detail: "Take the recovery planned on this device.", stat: "VIT", xp: 40, slot: 2 }, NUTRITION, { ...FOCUS, key: "whood_upsolve" }, { ...PROBLEMS, xp: 30 }, PROJECT, REVIEW, CLOSE_DAY];
 
 // These are neutral starter templates, not a bundled user's routine. Existing
 // devices keep their private templates from monarch.v1 during migration.
@@ -372,3 +363,4 @@ export const DEFAULT_REMINDERS = [];
    and show you the cost, which is a different mechanism and an honest one.     */
 
 export const FOCUS_TARGETS = [];
+

@@ -487,6 +487,18 @@ export default function App() {
     });
   }, [commit]);
 
+  const onNailBite = useCallback((dk, delta = 1) => {
+    commit((d) => {
+      const log = { ...(d.body.nailBiting || {}) };
+      const next = Math.max(0, (Number(log[dk]) || 0) + delta);
+      if (next) log[dk] = next;
+      else delete log[dk];
+      d.body.nailBiting = log;
+      return d;
+    });
+    if (delta > 0) flash("Urge logged — notice it, then reset");
+  }, [commit, flash]);
+
   /* ---- side quests ----
      Priced by the engine rather than by the caller, so the board and this
      cannot drift apart on what a piece of work is worth. */
@@ -658,7 +670,7 @@ export default function App() {
     onToggleExercise, onLogSets, onLogCardio, onRenameExercise,
     onAddMeal, onRemoveMeal, onSetWater, onLogWeight, onLogWaist, onLogSleep,
     onExtract, onDismiss, onSettings, onImport, onReset, onRestoreRecovery, onProgression, flash,
-    onStartSeason, onSchedule, onReminder, onLogFocus, onJournal, alerts, setTab,
+    onStartSeason, onSchedule, onReminder, onLogFocus, onJournal, onNailBite, alerts, setTab,
     onAddExtra, onRemoveExtra,
     backupStatus: {
       storageStatus,
@@ -805,3 +817,4 @@ export default function App() {
     </div>
   );
 }
+

@@ -324,11 +324,12 @@ function Blocking() {
 
 function Routines({ state, onRoutinePlan, flash }) {
   return (
-    <Win title="Compulsory routines" right="0 XP each">
+    <Win title="Compulsory routines" right="Required">
       <p className="faint" style={{ marginTop: 0 }}>
         Your recurring daily, weekly and special monthly routines are added automatically.
         Completions stay in this device's private save and travel with your JSON backup.
-        Every scheduled routine is required to clear its day. A separate streak tracks 30 days; bonus XP is off.
+        Every scheduled routine is required to clear its day. Most give 0 XP; tomorrow planning gives 5 XP.
+        A separate streak tracks 30 days; bonus XP is off.
       </p>
       {(state.routinePlan?.tasks || []).map((task) => (
         <div className="kv" key={task.key}><span>{task.title}</span><b>{task.time || "Scheduled day"}</b></div>

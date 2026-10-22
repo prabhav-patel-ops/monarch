@@ -3,8 +3,8 @@ import {
   SEED_GATES, SEED_SHADOWS, SEEDS_VERSION,
   DEFAULT_REMINDERS, FOCUS_TARGETS,
 } from "./data.js";
-import { STATS, resolveDetail, DEFAULT_SCHEDULE, dateKey } from "./engine.js";
-import { DEFAULT_ROUTINE_PLAN, ensureRoutines, validateRoutinePlan } from "./routines.js";
+import { STATS, DEFAULT_SCHEDULE, dateKey } from "./engine.js";
+import { DEFAULT_ROUTINE_PLAN, ensureRoutines, upgradeBuiltInRoutinePlan, validateRoutinePlan } from "./routines.js";
 
 export const KEY = "monarch.v1";
 export const META_KEY = "monarch.v1.meta";
@@ -25,7 +25,7 @@ const MAX_LINEAGE = 100;
 /* Bump when DEFAULT_TEMPLATES changes shape OR when quest XP is repriced.
    Saved templates below this are replaced on load, because an old save can
    carry stale quest copy and stale prices. */
-export const TEMPLATES_VERSION = 12;
+export const TEMPLATES_VERSION = 13;
 
 const DIFFICULTY_KEYS = ["normal", "hard", "monarch"];
 
@@ -64,6 +64,7 @@ export function emptyState() {
       exNames: {},
       focus: {},
       journal: {},
+      nailBiting: {},
       photos: [],
     },
     settings: {
@@ -128,6 +129,7 @@ export function hydrate(parsed) {
   });
   if (!merged.body.focus || typeof merged.body.focus !== "object") merged.body.focus = {};
   if (!merged.body.journal || typeof merged.body.journal !== "object") merged.body.journal = {};
+  if (!merged.body.nailBiting || typeof merged.body.nailBiting !== "object") merged.body.nailBiting = {};
   if (!merged.body.exNames || typeof merged.body.exNames !== "object") merged.body.exNames = {};
   if (!DIFFICULTY_KEYS.includes(merged.settings.difficulty)) merged.settings.difficulty = "normal";
   if (typeof merged.settings.showNumbers !== "boolean") merged.settings.showNumbers = true;
@@ -150,58 +152,24 @@ export function hydrate(parsed) {
   const caps = new Map((parsed.settings?.focusCaps || []).map((c) => [c.id, c]));
   merged.settings.focusCaps = FOCUS_TARGETS.map((f) => ({ ...f, ...(caps.get(f.id) || {}) }));
 
-  /* Add the universal compulsory planning task without replacing a device's
-     private routine. Personal templates live only inside monarch.v1. */
+  /* Tomorrow planning now lives in the compulsory routine panel. Remove it
+     from ordinary templates; generated days are converted below and retain
+     their completion state. */
   if ((parsed.templatesVersion || 0) < TEMPLATES_VERSION) {
     const privateTemplates = parsed.templates && typeof parsed.templates === "object"
       ? JSON.parse(JSON.stringify(parsed.templates))
       : JSON.parse(JSON.stringify(DEFAULT_TEMPLATES));
-    const required = Object.values(DEFAULT_TEMPLATES)
-      .flat()
-      .find((quest) => quest.key === "plan_tomorrow");
-
     for (let weekday = 0; weekday < 7; weekday += 1) {
       const list = Array.isArray(privateTemplates[weekday]) ? privateTemplates[weekday] : [];
-      const existing = list.find((quest) => quest.key === required.key);
-      if (existing) Object.assign(existing, required);
-      else list.push({ ...required });
-      list.sort((a, b) => (Number(a.slot) || 99) - (Number(b.slot) || 99));
-      privateTemplates[weekday] = list;
+      privateTemplates[weekday] = list.filter((quest) => quest.key !== "plan_tomorrow");
     }
 
     merged.templates = privateTemplates;
     merged.templatesVersion = TEMPLATES_VERSION;
-    const today = dateKey(new Date());
-
-    Object.entries(merged.days || {}).forEach(([dk, day]) => {
-      if (dk < today) return;
-      const quests = Array.isArray(day.quests) ? day.quests : [];
-      const existing = quests.find((quest) => quest.key === required.key && !quest.penalty);
-      if (existing) Object.assign(existing, required);
-      else quests.push({
-        id: `${dk}#required#${required.key}`,
-        ...required,
-        detail: resolveDetail(required.detail, merged.progression),
-        done: false,
-        excused: false,
-        penalty: false,
-      });
-      day.quests = quests;
-
-      /* Carried-over penalty quests keep a "penalty" slot rather than a
-         number, so they sort to the end instead of NaN-ing the comparison. */
-      day.quests.sort((a, b) => {
-        const av = typeof a.slot === "number" ? a.slot : 99;
-        const bv = typeof b.slot === "number" ? b.slot : 99;
-        return av - bv;
-      });
-    });
   }
 
   const routineToday = dateKey(new Date());
-  merged.routinePlan = parsed.routinePlan
-    ? validateRoutinePlan(parsed.routinePlan)
-    : JSON.parse(JSON.stringify(DEFAULT_ROUTINE_PLAN));
+  merged.routinePlan = validateRoutinePlan(upgradeBuiltInRoutinePlan(parsed.routinePlan));
   Object.entries(merged.days).forEach(([key, day]) => {
     if (key >= routineToday) ensureRoutines(day, merged.routinePlan);
   });

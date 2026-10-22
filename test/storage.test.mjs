@@ -60,6 +60,7 @@ await t("a fresh hosted origin starts with a private generic state", () => {
   assert.equal(loaded.state.hunter.name, "Hunter");
   assert.deepEqual(loaded.state.days, {});
   assert.deepEqual(loaded.state.body.weights, []);
+  assert.deepEqual(loaded.state.body.nailBiting, {});
   assert.deepEqual(loaded.state.cfHistory, []);
   assert.deepEqual(loaded.state.gates, []);
   assert.deepEqual(loaded.state.streak, { current: 0, best: 0 });
@@ -229,3 +230,4 @@ if (originalStorage === undefined) delete globalThis.localStorage;
 else globalThis.localStorage = originalStorage;
 
 console.log(`\n${pass} storage safety checks passing`);
+

@@ -14,6 +14,7 @@ import {
 } from "../src/engine.js";
 import { dailyRemindersIcs, gatesIcs, wrapCalendar, vevent } from "../src/calendar.js";
 import { DEFAULT_TEMPLATES, DEFAULT_PROGRESSION, TRAINING, SEED_GATES } from "../src/data.js";
+import { DEFAULT_ROUTINE_PLAN } from "../src/routines.js";
 
 let pass = 0;
 const t = (name, fn) => {
@@ -154,15 +155,11 @@ t("weekday and Sunday templates differ, and Sunday pays for rest", () => {
 });
 
 t("tomorrow timetable is a low-XP compulsory gate on every day", () => {
-  Object.values(DEFAULT_TEMPLATES).forEach((templates) => {
-    const plan = templates.find((q) => q.key === "plan_tomorrow");
-    const sleep = templates.find((q) => q.key === "sleep");
-    assert.ok(plan, "every day includes tomorrow planning");
-    assert.equal(plan.required, true);
-    assert.equal(plan.xp, 5);
-    assert.ok(plan.slot < sleep.slot, "planning appears immediately before sleep");
-  });
-  const day = generateDay("2026-09-01", DEFAULT_TEMPLATES, DEFAULT_PROGRESSION, null);
+  const plan = DEFAULT_ROUTINE_PLAN.tasks.find((q) => q.key === "plan_tomorrow");
+  assert.ok(plan, "the compulsory routine plan includes tomorrow planning");
+  assert.equal(plan.xp, 5);
+  assert.equal(plan.time, "22:00");
+  const day = generateDay("2026-10-23", DEFAULT_TEMPLATES, DEFAULT_PROGRESSION, null, 0.7, DEFAULT_ROUTINE_PLAN);
   day.quests.forEach((q) => (q.done = q.key !== "plan_tomorrow"));
   assert.equal(isDayCleared(day), false);
   assert.equal(gradeDay(day).grade, "slipped");
@@ -248,7 +245,8 @@ t("a day clears at 70 percent, not 100", () => {
   day.quests.forEach((q) => {
     if (acc / total < 0.72) { q.done = true; acc += q.xp; }
   });
-  day.quests.find((q) => q.required).done = true;
+  const required = day.quests.find((q) => q.required);
+  if (required) required.done = true;
   assert.ok(dayEarnedXp(day) < total, "not everything done");
   assert.equal(isDayCleared(day), true);
 });
@@ -1535,3 +1533,4 @@ t("a level always costs more than the one before it", () => {
 });
 
 console.log(`\n${pass} passing`);
+

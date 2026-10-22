@@ -147,7 +147,7 @@ function SideQuests({ day, viewKey, isToday, onAddExtra, onRemoveExtra }) {
   );
 }
 
-export default function Quests({ state, todayKey, onToggle, onExcuse, onAddExtra, onRemoveExtra }) {
+export default function Quests({ state, todayKey, onToggle, onExcuse, onAddExtra, onRemoveExtra, onNailBite }) {
   const [viewKey, setViewKey] = useState(todayKey);
   const day = state.days[viewKey];
   const isToday = viewKey === todayKey;
@@ -200,6 +200,12 @@ export default function Quests({ state, todayKey, onToggle, onExcuse, onAddExtra
   const recoveryKeys = new Set(carriedForYesterday.length
     ? carriedForYesterday.map((q) => q.key)
     : missedKeys);
+  const nailLog = state.body.nailBiting || {};
+  const nailCount = Number(nailLog[viewKey]) || 0;
+  const nailHistory = Array.from({ length: 7 }, (_, index) => {
+    const key = shiftKey(viewKey, index - 6);
+    return { key, count: Number(nailLog[key]) || 0, label: WD[parseKey(key).getDay()].slice(0, 2) };
+  });
 
   const QuestRow = ({ q }) => (
     <div
@@ -247,7 +253,7 @@ export default function Quests({ state, todayKey, onToggle, onExcuse, onAddExtra
       {routines.length > 0 && (
         <Win title="Compulsory routines" tone={routinesLeft ? undefined : "accent"} right={`${routines.length - routinesLeft}/${routines.length} complete`}>
           <p className="faint" style={{ marginTop: 0 }}>
-            Required to clear this day. Each completion earns 0 XP. These stay on their scheduled date.
+            Required to clear this day. Most earn 0 XP; tomorrow planning earns 5 XP. These stay on their scheduled date.
           </p>
           {routines.map((q) => <QuestRow key={q.id} q={q} />)}
           <p className="faint" style={{ marginBottom: 0 }}>
@@ -256,6 +262,42 @@ export default function Quests({ state, todayKey, onToggle, onExcuse, onAddExtra
           </p>
         </Win>
       )}
+      <Win title="Nail-biting counter" right={isToday ? "Today" : pretty(viewKey)}>
+        <div className="row" style={{ alignItems: "center", gap: 16 }}>
+          <div style={{ flex: 1 }}>
+            <div className="stat-num" style={{ fontSize: 38 }}>{nailCount}</div>
+            <div className="faint">times hand reached mouth</div>
+          </div>
+          {isToday && (
+            <div className="row" style={{ width: "auto", gap: 8 }}>
+              <button
+                className="ghost"
+                style={{ minWidth: 48, padding: "12px 14px" }}
+                onClick={() => onNailBite(viewKey, -1)}
+                disabled={nailCount === 0}
+                aria-label="Undo one nail-biting count"
+              >−1</button>
+              <button
+                className="solid"
+                style={{ minWidth: 88, padding: "13px 18px" }}
+                onClick={() => onNailBite(viewKey, 1)}
+                aria-label="Add one nail-biting count"
+              >+1</button>
+            </div>
+          )}
+        </div>
+        <div className="row" style={{ gap: 6, marginTop: 16 }} aria-label="Last seven days of nail-biting counts">
+          {nailHistory.map((item) => (
+            <div key={item.key} style={{ flex: 1, textAlign: "center" }}>
+              <div className="faint" style={{ fontSize: 10 }}>{item.label}</div>
+              <b style={{ color: item.key === viewKey ? "var(--rune)" : "var(--text)" }}>{item.count}</b>
+            </div>
+          ))}
+        </div>
+        <p className="faint" style={{ marginBottom: 0, fontSize: 11 }}>
+          Tap +1 as soon as you notice the movement. This is awareness only: no XP and no day penalty.
+        </p>
+      </Win>
       <Win tone={cleared ? "accent" : undefined} title="Daily quest" right={pretty(viewKey)}>
         <div className="xp-row">
           <div className="xp-level stat-num" style={{ fontSize: 26, color: cleared ? "var(--rune)" : "var(--text)" }}>
@@ -366,3 +408,4 @@ export default function Quests({ state, todayKey, onToggle, onExcuse, onAddExtra
     </>
   );
 }
+
