@@ -23,6 +23,8 @@ and **System** (chat).
 
 The compulsory-routines panel includes a 5 XP **Make tomorrow's timetable** task immediately before sleep. It is a compulsory gate: the day cannot clear while it remains unfinished, even when the XP threshold has otherwise been reached. Vitamin D is scheduled weekly on Friday from 23 October 2026; older logs retain the former daily schedule.
 
+The Quests screen also has a private daily nail-biting counter with a quick **+1**, an undo control, and a seven-day history. It is an awareness measure only and does not change XP or the day's grade.
+
 **Focus → Routines** shows the built-in daily/weekly routines and supports
 optional replacement through a routine-plan JSON file. Their tasks are
 compulsory and award **0 XP**. App updates add the built-in plan to existing
