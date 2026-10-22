@@ -64,6 +64,7 @@ export function emptyState() {
       exNames: {},
       focus: {},
       journal: {},
+      nailBiting: {},
       photos: [],
     },
     settings: {
@@ -128,6 +129,7 @@ export function hydrate(parsed) {
   });
   if (!merged.body.focus || typeof merged.body.focus !== "object") merged.body.focus = {};
   if (!merged.body.journal || typeof merged.body.journal !== "object") merged.body.journal = {};
+  if (!merged.body.nailBiting || typeof merged.body.nailBiting !== "object") merged.body.nailBiting = {};
   if (!merged.body.exNames || typeof merged.body.exNames !== "object") merged.body.exNames = {};
   if (!DIFFICULTY_KEYS.includes(merged.settings.difficulty)) merged.settings.difficulty = "normal";
   if (typeof merged.settings.showNumbers !== "boolean") merged.settings.showNumbers = true;
