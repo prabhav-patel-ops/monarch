@@ -49,8 +49,12 @@ assert.equal(streakRecovery({ "2026-10-21": day, "2026-10-22": board("2026-10-22
 
 const today = dateKey(new Date());
 const state = emptyState();
-assert.equal(state.routinePlan.tasks.length, 5);
+assert.equal(state.routinePlan.tasks.length, 6);
 assert.equal(state.routinePlan.tasks[0].key, "routine_morning_prayer");
+assert.ok(routineQuests("2026-10-22", DEFAULT_ROUTINE_PLAN).some((q) => q.key === "routine_vitamin_d"));
+assert.ok(routineQuests("2026-10-23", DEFAULT_ROUTINE_PLAN).some((q) => q.key === "routine_vitamin_d"));
+assert.ok(!routineQuests("2026-10-24", DEFAULT_ROUTINE_PLAN).some((q) => q.key === "routine_vitamin_d"));
+assert.equal(routineQuests("2026-10-23", DEFAULT_ROUTINE_PLAN).find((q) => q.key === "plan_tomorrow").xp, 5);
 state.routinePlan = plan;
 state.days[today] = { date: today, generated: true, quests: [{ key: "personal", id: "personal", xp: 10, stat: "INT", done: true }] };
 state.days["2026-10-20"] = { date: "2026-10-20", quests: [] };
@@ -70,6 +74,20 @@ legacyWithoutPlan.days[today] = { date: today, generated: true, quests: [] };
 const defaulted = hydrate(legacyWithoutPlan);
 assert.deepEqual(defaulted.routinePlan, DEFAULT_ROUTINE_PLAN);
 assert.equal(defaulted.days[today].quests.filter((q) => q.routine).length, routineQuests(today, DEFAULT_ROUTINE_PLAN).length);
+
+const oldBuiltIn = JSON.parse(JSON.stringify(DEFAULT_ROUTINE_PLAN));
+delete oldBuiltIn.builtInRevision;
+oldBuiltIn.tasks = oldBuiltIn.tasks.filter((task) => task.key !== "plan_tomorrow");
+const oldVitamin = oldBuiltIn.tasks.find((task) => task.key === "routine_vitamin_d");
+oldVitamin.weekdays = [0, 1, 2, 3, 4, 5, 6];
+delete oldVitamin.priorSchedule;
+const migratedBuiltIn = emptyState();
+migratedBuiltIn.routinePlan = oldBuiltIn;
+migratedBuiltIn.days[today] = { date: today, generated: true, quests: [] };
+const migrated = hydrate(migratedBuiltIn);
+assert.equal(migrated.routinePlan.builtInRevision, 2);
+assert.ok(migrated.routinePlan.tasks.some((task) => task.key === "plan_tomorrow"));
+assert.deepEqual(migrated.routinePlan.tasks.find((task) => task.key === "routine_vitamin_d").weekdays, [5]);
 
 const history = {};
 for (let i = 0; i < 30; i++) {
