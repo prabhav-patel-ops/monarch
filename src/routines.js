@@ -10,6 +10,7 @@ const previousKey = (key) => {
 // their next reload; completion history still remains device-local.
 export const DEFAULT_ROUTINE_PLAN = {
   version: 1,
+  builtInRevision: 2,
   start: "2026-10-21",
   tasks: [
     {
@@ -26,9 +27,10 @@ export const DEFAULT_ROUTINE_PLAN = {
     {
       key: "routine_vitamin_d",
       title: "Take vitamin D",
-      detail: "Take the daily vitamin D tablet in the morning.",
+      detail: "Take the weekly vitamin D tablet on Friday morning.",
       time: "07:40",
-      weekdays: [0, 1, 2, 3, 4, 5, 6],
+      weekdays: [5],
+      priorSchedule: { until: "2026-10-22", weekdays: [0, 1, 2, 3, 4, 5, 6] },
     },
     {
       key: "routine_thursday_mandir",
@@ -48,8 +50,35 @@ export const DEFAULT_ROUTINE_PLAN = {
       detail: "Include lasun on Wednesday.",
       weekdays: [3],
     },
+    {
+      key: "plan_tomorrow",
+      title: "Make tomorrow's timetable",
+      detail: "Before sleeping, write tomorrow's timetable. This compulsory gate decides whether the day clears.",
+      time: "22:00",
+      weekdays: [0, 1, 2, 3, 4, 5, 6],
+      xp: 5,
+      stat: "PER",
+    },
   ],
 };
+
+const BUILT_IN_KEYS_V1 = [
+  "routine_morning_prayer", "routine_vitamin_d", "routine_thursday_mandir",
+  "routine_sunday_moong", "routine_wednesday_lasun",
+];
+
+// The first automatic release had no revision marker. Recognise only its exact
+// task set so a user-imported custom plan is never silently replaced.
+export function upgradeBuiltInRoutinePlan(plan) {
+  if (!plan) return JSON.parse(JSON.stringify(DEFAULT_ROUTINE_PLAN));
+  if (plan.builtInRevision === DEFAULT_ROUTINE_PLAN.builtInRevision) return plan;
+  const keys = Array.isArray(plan.tasks) ? plan.tasks.map((task) => task.key).sort() : [];
+  const original = [...BUILT_IN_KEYS_V1].sort();
+  if (keys.length === original.length && keys.every((key, index) => key === original[index])) {
+    return JSON.parse(JSON.stringify(DEFAULT_ROUTINE_PLAN));
+  }
+  return plan;
+}
 
 export function validateRoutinePlan(value) {
   if (!value || value.version !== 1 || !/^\d{4}-\d{2}-\d{2}$/.test(value.start || "") ||
@@ -58,15 +87,22 @@ export function validateRoutinePlan(value) {
   }
   const keys = new Set();
   for (const task of value.tasks) {
-    if (!/^routine_[a-z0-9_]+$/.test(task.key || "") || keys.has(task.key) ||
+    if (!/^(routine_[a-z0-9_]+|plan_tomorrow)$/.test(task.key || "") || keys.has(task.key) ||
         typeof task.title !== "string" || !task.title.trim() || task.title.length > 160 ||
         typeof task.detail !== "string" || task.detail.length > 500 ||
         !Array.isArray(task.weekdays) || !task.weekdays.length ||
         task.weekdays.some((day) => !Number.isInteger(day) || day < 0 || day > 6) ||
-        (task.time && !/^([01]\d|2[0-3]):[0-5]\d$/.test(task.time))) {
+        (task.time && !/^([01]\d|2[0-3]):[0-5]\d$/.test(task.time)) ||
+        (task.xp != null && (!Number.isInteger(task.xp) || task.xp < 0 || task.xp > 100)) ||
+        (task.stat != null && !["STR", "INT", "PER", "AGI", "VIT"].includes(task.stat))) {
       throw new Error("The routine plan contains an invalid task.");
     }
     keys.add(task.key);
+    if (task.priorSchedule != null && (
+      !/^\d{4}-\d{2}-\d{2}$/.test(task.priorSchedule.until || "") ||
+      !Array.isArray(task.priorSchedule.weekdays) || !task.priorSchedule.weekdays.length ||
+      task.priorSchedule.weekdays.some((day) => !Number.isInteger(day) || day < 0 || day > 6)
+    )) throw new Error("The routine plan contains an invalid prior schedule.");
     if (task.variants != null && (!Array.isArray(task.variants) || task.variants.length > 10 || task.variants.some((v) =>
       !Array.isArray(v.weekdays) || !v.weekdays.length || v.weekdays.some((d) => !Number.isInteger(d) || d < 0 || d > 6) ||
       (v.monthWeek != null && (!Number.isInteger(v.monthWeek) || v.monthWeek < 1 || v.monthWeek > 5)) ||
@@ -80,12 +116,18 @@ export function validateRoutinePlan(value) {
 export function routineQuests(key, plan) {
   if (!plan || key < plan.start) return [];
   const d = localDate(key);
-  return plan.tasks.filter((task) => task.weekdays.includes(d.getDay())).map((task, i) => {
+  return plan.tasks.filter((task) => {
+    const weekdays = task.priorSchedule && key <= task.priorSchedule.until
+      ? task.priorSchedule.weekdays
+      : task.weekdays;
+    return weekdays.includes(d.getDay());
+  }).map((task, i) => {
     const variant = task.variants?.find((v) => v.weekdays.includes(d.getDay()) &&
       (v.monthWeek == null || v.monthWeek === Math.ceil(d.getDate() / 7)));
     return {
       key: task.key, title: variant?.title || task.title, detail: variant?.detail || task.detail,
-      time: task.time, slot: i, id: `${key}#${task.key}`, stat: "VIT", xp: 0,
+      time: task.time, slot: i, id: `${key}#${task.key}`,
+      stat: task.stat || "VIT", xp: task.xp || 0,
       required: true, routine: true, done: false, penalty: false,
     };
   });
