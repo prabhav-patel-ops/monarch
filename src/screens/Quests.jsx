@@ -247,7 +247,7 @@ export default function Quests({ state, todayKey, onToggle, onExcuse, onAddExtra
       {routines.length > 0 && (
         <Win title="Compulsory routines" tone={routinesLeft ? undefined : "accent"} right={`${routines.length - routinesLeft}/${routines.length} complete`}>
           <p className="faint" style={{ marginTop: 0 }}>
-            Required to clear this day. Each completion earns 0 XP. These stay on their scheduled date.
+            Required to clear this day. Most earn 0 XP; tomorrow planning earns 5 XP. These stay on their scheduled date.
           </p>
           {routines.map((q) => <QuestRow key={q.id} q={q} />)}
           <p className="faint" style={{ marginBottom: 0 }}>
@@ -366,3 +366,4 @@ export default function Quests({ state, todayKey, onToggle, onExcuse, onAddExtra
     </>
   );
 }
+
