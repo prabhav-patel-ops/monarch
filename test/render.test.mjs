@@ -76,7 +76,7 @@ const props = (state) => ({
   onLogWeight: noop, onLogWaist: noop, onLogSleep: noop, onExtract: noop, onDismiss: noop,
   onSettings: noop, onImport: noop, onReset: noop, onProgression: noop,
   onStartSeason: noop, onSchedule: noop, onReminder: noop, onLogFocus: noop,
-  alerts: [], setTab: noop, onAddExtra: noop, onRemoveExtra: noop,
+  onNailBite: noop, alerts: [], setTab: noop, onAddExtra: noop, onRemoveExtra: noop,
 });
 
 const screens = { Status, Quests, Gates, Dungeon, Calendar, Focus, Shadows, SystemChat };
@@ -279,4 +279,18 @@ t("compulsory routines render separately with no completion XP and a monthly str
   assert.equal((html.match(/class="qxp">0 xp/g) || []).length, 3);
 });
 
+t("the daily nail-biting counter renders its count, controls and seven-day history", () => {
+  const state = emptyState();
+  const key = "2026-10-23";
+  state.days[key] = generateDay(key, state.templates, state.progression, null, 0.7, state.routinePlan);
+  state.body.nailBiting[key] = 3;
+  const html = renderToStaticMarkup(React.createElement(Quests, { ...props(state), todayKey: key }));
+  assert.match(html, /Nail-biting counter/);
+  assert.match(html, /times hand reached mouth/);
+  assert.match(html, /Add one nail-biting count/);
+  assert.match(html, />3</);
+  assert.equal((html.match(/font-size:10px/g) || []).length >= 7, true);
+});
+
 console.log(`\n${pass} passing`);
+
