@@ -1,19 +1,22 @@
 import React, { useState, useRef } from "react";
 import { Win } from "../ui.jsx";
 import { ShadowSoldier } from "../art.jsx";
-import { STATS, STAT_META, RATCHET_RULES, DIFFICULTY } from "../engine.js";
+import { STATS, STAT_META, RATCHET_RULES, DIFFICULTY, levelFromTotalXp } from "../engine.js";
 import { SHADOW_PRESETS } from "../data.js";
 import { exportJson } from "../store.js";
 import { saveFile } from "../download.js";
 
 export default function Shadows({
-  state, onExtract, onDismiss, onSettings, onImport, onReset, onRestoreRecovery,
+  state, onExtract, onDismiss, onSettings, onImport, onReset,
+  onListRecovery, onRestoreCheckpoint,
   onProgression, backupStatus = {},
 }) {
   const [name, setName] = useState("");
   const [saveNote, setSaveNote] = useState("");
   const [stat, setStat] = useState("INT");
   const [bonus, setBonus] = useState(5);
+  const [checkpoints, setCheckpoints] = useState(null);
+  const [loadingCheckpoints, setLoadingCheckpoints] = useState(false);
   const fileRef = useRef(null);
 
   const shadows = state.shadows || [];
@@ -50,6 +53,17 @@ export default function Shadows({
     };
     r.readAsText(f);
     e.target.value = "";
+  };
+
+  const showCheckpoints = async () => {
+    setLoadingCheckpoints(true);
+    try {
+      setCheckpoints(await onListRecovery());
+    } catch (error) {
+      setSaveNote(error.message || "Recovery checkpoints are unavailable on this device.");
+    } finally {
+      setLoadingCheckpoints(false);
+    }
   };
 
   return (
@@ -227,9 +241,44 @@ export default function Shadows({
           </p>
         )}
         <input ref={fileRef} type="file" accept="application/json" style={{ display: "none" }} onChange={upload} />
-        <button className="ghost" style={{ width: "100%", marginTop: 10 }} onClick={onRestoreRecovery}>
-          Restore latest checkpoint
+        <button className="ghost" style={{ width: "100%", marginTop: 10 }} onClick={showCheckpoints} disabled={loadingCheckpoints}>
+          {loadingCheckpoints ? "Checking…" : checkpoints ? "Refresh recovery checkpoints" : "View recovery checkpoints"}
         </button>
+        {checkpoints && (
+          <div style={{ marginTop: 12 }}>
+            {checkpoints.length === 0 ? (
+              <p className="faint">No earlier verified checkpoint exists on this device.</p>
+            ) : checkpoints.map((checkpoint) => {
+              const when = checkpoint.createdAt
+                ? new Date(checkpoint.createdAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })
+                : "Time unavailable";
+              return (
+                <div className="setting" key={checkpoint.id} style={{ display: "block", marginBottom: 10 }}>
+                  <div className="row" style={{ alignItems: "flex-start", gap: 10 }}>
+                    <div style={{ flex: 1 }}>
+                      <b>{when}</b>
+                      <div className="faint" style={{ marginTop: 3 }}>
+                        Level {levelFromTotalXp(checkpoint.totalXp).level} · {checkpoint.totalXp} XP · {checkpoint.streakCurrent} day streak
+                      </div>
+                      <div className="faint">
+                        {checkpoint.daysLogged} days logged{checkpoint.lastDate ? ` · through ${checkpoint.lastDate}` : ""} · {checkpoint.reason}
+                      </div>
+                    </div>
+                    <button
+                      className="ghost"
+                      style={{ width: "auto", padding: "9px 12px" }}
+                      onClick={() => {
+                        if (confirm(`Restore the checkpoint from ${when}? Your current state will be kept as another recovery checkpoint.`)) {
+                          onRestoreCheckpoint(checkpoint.id);
+                        }
+                      }}
+                    >Restore</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
         <p className="faint" style={{ marginBottom: 0 }}>
           Clearing site data, changing origin/host, private browsing, or reinstalling the PWA can remove both the live
           save and local checkpoints. Keep an exported file elsewhere. Device time is informational; branch order uses
@@ -248,3 +297,4 @@ export default function Shadows({
     </>
   );
 }
+
