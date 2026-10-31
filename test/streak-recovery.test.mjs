@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   computeStreak, dayPenalty, generateDay, isDayCleared, streakRecovery,
+  reconcileDayCarry, reconcileCarryovers,
 } from "../src/engine.js";
 
 function quest(key, xp, done = false, extra = {}) {
@@ -142,4 +143,41 @@ assert.equal(streakRecovery(picturedDays, oct9Screenshot.date).total, 2);
 assert.equal(streakRecovery(picturedDays, oct9Screenshot.date).complete, true,
   "both visible penalties restore October 9 even with a normal Brainteasers quest undone");
 
+// Correcting a closed day after the next board was generated must retract the
+// obsolete penalty and immediately restore the run.
+const beforeCorrection = day("2026-10-28", [quest("base", 100, true)]);
+const correctedDay = day("2026-10-29", [quest("finished", 100, true), quest("late-mark", 100)]);
+const afterCorrection = day("2026-10-30", [
+  quest("today", 100),
+  quest("late-mark", 150, false, { penalty: true, recoveryFor: correctedDay.date, slot: "penalty" }),
+]);
+const correctedDays = {
+  [beforeCorrection.date]: beforeCorrection,
+  [correctedDay.date]: correctedDay,
+  [afterCorrection.date]: afterCorrection,
+};
+correctedDay.quests.find((q) => q.key === "late-mark").done = true;
+reconcileCarryovers(correctedDays, afterCorrection.date);
+assert.equal(afterCorrection.quests.some((q) => q.penalty), false,
+  "late completion removes the already-generated penalty row");
+assert.equal(computeStreak(correctedDays, afterCorrection.date).current, 2,
+  "late completion restores the historical streak while today is in progress");
+
+// The inverse stays honest and recurring tasks use their normal row instead
+// of creating a duplicate penalty.
+correctedDay.quests.find((q) => q.key === "late-mark").done = false;
+reconcileDayCarry(afterCorrection, correctedDay);
+assert.equal(afterCorrection.quests.filter((q) => q.penalty && q.key === "late-mark").length, 1,
+  "unmarking the historical task recreates one carry-over");
+const recurringPrev = day("2026-10-30", [quest("repeat", 40)]);
+const recurringNext = day("2026-10-31", [quest("repeat", 40)]);
+reconcileDayCarry(recurringNext, recurringPrev);
+assert.equal(recurringNext.quests.length, 1, "a recurring task is not duplicated");
+assert.equal(recurringNext.quests[0].recoveryFor, recurringPrev.date);
+recurringPrev.quests[0].done = true;
+reconcileDayCarry(recurringNext, recurringPrev);
+assert.equal("recoveryFor" in recurringNext.quests[0], false,
+  "correcting the prior day clears the recurring catch-up marker");
+
 console.log("next-day streak recovery keeps missed work, expiry, and historic saves consistent");
+
