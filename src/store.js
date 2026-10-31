@@ -591,6 +591,96 @@ export async function listRecoverySnapshots(limit = 5) {
   }
 }
 
+export function summarizeRecoveryRecord(record, id = "checkpoint") {
+  if (!record || typeof record.raw !== "string" || typeof record.hash !== "string") {
+    throw new Error("Invalid recovery checkpoint.");
+  }
+  const checked = validateState(JSON.parse(record.raw));
+  if (checked.hash !== record.hash) throw new Error("The recovery checkpoint failed validation.");
+  const dayKeys = Object.keys(checked.state.days || {}).sort();
+  return {
+    id,
+    hash: checked.hash,
+    createdAt: typeof record.createdAt === "string" ? record.createdAt : null,
+    reason: typeof record.reason === "string" ? record.reason : "verified checkpoint",
+    totalXp: Number(checked.state.totalXp) || 0,
+    streakCurrent: Number(checked.state.streak?.current) || 0,
+    streakBest: Number(checked.state.streak?.best) || 0,
+    daysLogged: dayKeys.length,
+    lastDate: dayKeys[dayKeys.length - 1] || null,
+  };
+}
+
+/** Return verified, non-current checkpoints without exposing diary contents. */
+export async function listRecoveryCheckpoints(limit = 15) {
+  const current = loadState();
+  const seen = new Set([current.hash]);
+  const out = [];
+  try {
+    const snapshots = await listRecoverySnapshots(limit);
+    for (const entry of snapshots) {
+      try {
+        const summary = summarizeRecoveryRecord(entry, `snapshot:${entry.sequence}`);
+        if (!seen.has(summary.hash)) {
+          seen.add(summary.hash);
+          out.push(summary);
+        }
+      } catch {
+        /* Invalid snapshots are omitted rather than offered for restoration. */
+      }
+    }
+  } catch {
+    /* Fall through to synchronous verified checkpoints. */
+  }
+
+  for (const [id, key, reason] of [
+    ["preserved-branch", BRANCH_KEY, "preserved branch"],
+    ["last-good", LAST_GOOD_KEY, "last verified write"],
+  ]) {
+    try {
+      const fallback = verifiedRecovery(storageArea()?.getItem(key));
+      const summary = summarizeRecoveryRecord({ ...fallback, reason }, id);
+      if (!seen.has(summary.hash)) {
+        seen.add(summary.hash);
+        out.push(summary);
+      }
+    } catch {
+      /* This fallback does not exist or failed verification. */
+    }
+  }
+  return out;
+}
+
+async function recoveryRecordById(id) {
+  if (id === "preserved-branch") return verifiedRecovery(storageArea()?.getItem(BRANCH_KEY));
+  if (id === "last-good") return verifiedRecovery(storageArea()?.getItem(LAST_GOOD_KEY));
+  const match = /^snapshot:(\d+)$/.exec(id || "");
+  if (!match) throw new Error("Choose a valid recovery checkpoint.");
+  const db = await openRecoveryDb();
+  try {
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(RECOVERY_STORE, "readonly");
+      const req = tx.objectStore(RECOVERY_STORE).get(Number(match[1]));
+      req.onsuccess = () => req.result ? resolve(req.result) : reject(new Error("That recovery checkpoint no longer exists."));
+      req.onerror = () => reject(req.error || new Error("Could not read the recovery checkpoint."));
+    });
+  } finally {
+    db.close();
+  }
+}
+
+export async function restoreRecoveryCheckpoint(id) {
+  const record = await recoveryRecordById(id);
+  const summary = summarizeRecoveryRecord(record, id);
+  const checked = validateState(JSON.parse(record.raw));
+  const result = await replaceState(checked.state, {
+    allowCorruptReplace: true,
+    lineage: record.lineage,
+    reason: "chosen-recovery",
+  });
+  return { ...result, checkpoint: summary };
+}
+
 export async function replaceState(state, options = {}) {
   const current = loadState();
   let durableSnapshot = false;
@@ -735,4 +825,5 @@ export function prepareImport(text, currentState = null) {
 export function importJson(text) {
   return prepareImport(text).state;
 }
+
 

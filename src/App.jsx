@@ -8,6 +8,8 @@ import {
   prepareImport,
   replaceState,
   restoreLatestSnapshot,
+  listRecoveryCheckpoints,
+  restoreRecoveryCheckpoint,
   requestPersistentStorage,
 } from "./store.js";
 import {
@@ -635,6 +637,21 @@ export default function App() {
     }
   }, [flash]);
 
+  const onListRecovery = useCallback(async () => listRecoveryCheckpoints(), []);
+
+  const onRestoreCheckpoint = useCallback(async (id) => {
+    try {
+      const result = await restoreRecoveryCheckpoint(id);
+      if (!result.ok) {
+        flash(result.reason);
+        return;
+      }
+      if (typeof location !== "undefined" && typeof location.reload === "function") location.reload();
+    } catch (error) {
+      flash(error.message || "That recovery checkpoint could not be restored.");
+    }
+  }, [flash]);
+
   const [nowMins, setNowMins] = useState(() => new Date().getHours() * 60 + new Date().getMinutes());
   useEffect(() => {
     const id = setInterval(() => setNowMins(new Date().getHours() * 60 + new Date().getMinutes()), 60000);
@@ -669,7 +686,8 @@ export default function App() {
     state, todayKey, onToggle, onExcuse, onAddGate, onClearGate, onDeleteGate, onLogRating, onRoutinePlan,
     onToggleExercise, onLogSets, onLogCardio, onRenameExercise,
     onAddMeal, onRemoveMeal, onSetWater, onLogWeight, onLogWaist, onLogSleep,
-    onExtract, onDismiss, onSettings, onImport, onReset, onRestoreRecovery, onProgression, flash,
+    onExtract, onDismiss, onSettings, onImport, onReset, onRestoreRecovery,
+    onListRecovery, onRestoreCheckpoint, onProgression, flash,
     onStartSeason, onSchedule, onReminder, onLogFocus, onJournal, onNailBite, alerts, setTab,
     onAddExtra, onRemoveExtra,
     backupStatus: {
@@ -817,4 +835,5 @@ export default function App() {
     </div>
   );
 }
+
 
