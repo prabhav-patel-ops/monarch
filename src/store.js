@@ -310,8 +310,8 @@ function verifiedRecovery(raw) {
   if (record.format !== "monarch.recovery" || typeof record.raw !== "string") {
     throw new Error("Invalid recovery record.");
   }
+  if (record.hash !== checksum(record.raw)) throw new Error("Recovery checksum mismatch.");
   const checked = validateState(JSON.parse(record.raw));
-  if (record.hash !== checked.hash) throw new Error("Recovery checksum mismatch.");
   return { ...checked, lineage: normalizeLineage(record.lineage, checked.hash) };
 }
 
@@ -595,8 +595,8 @@ export function summarizeRecoveryRecord(record, id = "checkpoint") {
   if (!record || typeof record.raw !== "string" || typeof record.hash !== "string") {
     throw new Error("Invalid recovery checkpoint.");
   }
+  if (checksum(record.raw) !== record.hash) throw new Error("The recovery checkpoint failed validation.");
   const checked = validateState(JSON.parse(record.raw));
-  if (checked.hash !== record.hash) throw new Error("The recovery checkpoint failed validation.");
   const dayKeys = Object.keys(checked.state.days || {}).sort();
   return {
     id,
@@ -746,8 +746,10 @@ export async function restoreLatestSnapshot() {
     }
   }
   if (!snapshot) return { ok: false, code: "none", reason: "No earlier recovery checkpoint exists on this device." };
+  if (snapshot.hash !== checksum(snapshot.raw)) {
+    return { ok: false, code: "invalid", reason: "The recovery checkpoint failed validation." };
+  }
   const checked = validateState(JSON.parse(snapshot.raw));
-  if (snapshot.hash !== checked.hash) return { ok: false, code: "invalid", reason: "The recovery checkpoint failed validation." };
   return replaceState(checked.state, {
     allowCorruptReplace: true,
     lineage: snapshot.lineage,
