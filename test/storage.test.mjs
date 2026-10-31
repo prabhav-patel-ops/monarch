@@ -11,6 +11,7 @@ import {
   prepareImport,
   replaceState,
   validateState,
+  summarizeRecoveryRecord,
 } from "../src/store.js";
 
 class MemoryStorage {
@@ -220,6 +221,31 @@ await t("critical replacement keeps a synchronous rollback record", async () => 
   assert.equal(JSON.parse(rollback.raw).totalXp, 10);
 });
 
+await t("recovery summaries expose metrics but not diary contents", () => {
+  const state = stateWithXp(250);
+  state.streak = { current: 4, best: 9 };
+  state.days["2026-10-31"] = { date: "2026-10-31", generated: true, quests: [] };
+  const checked = validateState(state);
+  const summary = summarizeRecoveryRecord({
+    raw: checked.raw,
+    hash: checked.hash,
+    createdAt: "2026-10-31T12:00:00.000Z",
+    reason: "autosave",
+  }, "snapshot:7");
+  assert.deepEqual(summary, {
+    id: "snapshot:7",
+    hash: checked.hash,
+    createdAt: "2026-10-31T12:00:00.000Z",
+    reason: "autosave",
+    totalXp: 250,
+    streakCurrent: 4,
+    streakBest: 9,
+    daysLogged: 1,
+    lastDate: "2026-10-31",
+  });
+  assert.equal("raw" in summary, false);
+});
+
 await t("photo bytes are rejected before they can bloat monarch.v1", () => {
   const state = emptyState();
   state.body.photos = [{ src: "data:image/png;base64,AAAA" }];
@@ -230,4 +256,5 @@ if (originalStorage === undefined) delete globalThis.localStorage;
 else globalThis.localStorage = originalStorage;
 
 console.log(`\n${pass} storage safety checks passing`);
+
 
