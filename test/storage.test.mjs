@@ -232,9 +232,12 @@ await t("recovery summaries expose metrics but not diary contents", () => {
     createdAt: "2026-10-31T12:00:00.000Z",
     reason: "autosave",
   }, "snapshot:7");
-  assert.deepEqual(summary, {
+  const expectedHydrated = validateState(JSON.parse(checked.raw));
+  assert.equal(summary.hash, expectedHydrated.hash);
+  const { hash, ...visible } = summary;
+  assert.ok(hash);
+  assert.deepEqual(visible, {
     id: "snapshot:7",
-    hash: checked.hash,
     createdAt: "2026-10-31T12:00:00.000Z",
     reason: "autosave",
     totalXp: 250,
