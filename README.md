@@ -34,6 +34,10 @@ scheduled routine; bonus XP is off. Timed routines join Focus's calendar export
 and notifications while open. Completion history stays inside the device's
 save and portable backup.
 
+Past-day corrections are live: marking a task complete after the next board
+was created removes its obsolete carry-over penalty and recalculates the streak
+and XP ledger immediately. Unmarking it recreates only the required carry-over.
+
 ## The quest engine
 
 Each day is generated from three inputs:
@@ -123,4 +127,5 @@ health log, ratings, deadlines, recovery snapshot, or exported save. A fresh
 installation starts with generic templates and empty history. An existing
 `monarch.v1` save remains the source of truth when the app updates; migrations
 add required app features without replacing the user's private routine or logs.
+
 

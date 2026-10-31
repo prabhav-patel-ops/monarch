@@ -11,7 +11,7 @@ import {
   requestPersistentStorage,
 } from "./store.js";
 import {
-  dateKey, shiftKey, generateDay, recomputeTotals, computeStreak,
+  dateKey, shiftKey, generateDay, recomputeTotals, computeStreak, reconcileCarryovers,
   levelFromTotalXp, rankFromLevel, applyRatchet, daysBetween,
   pendingAlerts,
   sideXp, STATS, earnedBar,
@@ -142,6 +142,10 @@ export default function App() {
           return prev;
         }
         const draft = mutate(clone(prev));
+
+        // Repair today's carry-over rows after any historical correction. It
+        // also heals saves corrected before this version was installed.
+        reconcileCarryovers(draft.days, todayKey);
 
         const { prog, raised } = applyRatchet(draft.days, todayKey, draft.progression, draft.settings);
         draft.progression = prog;
@@ -313,7 +317,9 @@ export default function App() {
       if (clearing) {
         if (stateRef.current?.settings?.soundOn) chime("quest");
         if (!before.routine) questFx(before);
-        flash(before.routine ? "Compulsory routine complete" : `${before.stat} +${before.xp}`);
+        flash(dk < todayKey
+          ? "Past day corrected — penalty and streak updated"
+          : before.routine ? "Compulsory routine complete" : `${before.stat} +${before.xp}`);
       }
     },
     [commit, flash, questFx]
@@ -817,4 +823,5 @@ export default function App() {
     </div>
   );
 }
+
 

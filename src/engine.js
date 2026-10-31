@@ -196,6 +196,63 @@ export function generateDay(dk, templatesByWeekday, prog, prevDay, bar, routineP
   return out;
 }
 
+/**
+ * Rebuild the carry-over relationship between two already-generated days.
+ * This is required when a user corrects yesterday after today's board exists.
+ */
+export function reconcileDayCarry(nextDay, prevDay) {
+  if (!nextDay?.generated || !prevDay?.generated ||
+      nextDay.date !== shiftKey(prevDay.date, 1) || !Array.isArray(nextDay.quests) ||
+      !Array.isArray(prevDay.quests)) return nextDay;
+
+  const previousKeys = new Set(prevDay.quests.map((q) => q.key).filter(Boolean));
+  const carried = new Map();
+  nextDay.quests.forEach((q) => {
+    const belongsToPrevious = q.penalty &&
+      (q.recoveryFor === prevDay.date || (!q.recoveryFor && previousKeys.has(q.key)));
+    if (belongsToPrevious && q.key) carried.set(q.key, q);
+    if (!q.penalty && q.recoveryFor === prevDay.date) delete q.recoveryFor;
+  });
+  nextDay.quests = nextDay.quests.filter((q) => !(q.penalty &&
+    (q.recoveryFor === prevDay.date || (!q.recoveryFor && previousKeys.has(q.key)))));
+
+  const missed = prevDay.quests.filter((q) => !q.done && !q.excused && !q.routine);
+  missed.forEach((q, index) => {
+    const scheduled = nextDay.quests.find((candidate) => !candidate.penalty && candidate.key === q.key);
+    if (scheduled) {
+      scheduled.recoveryFor = prevDay.date;
+      return;
+    }
+    const existing = carried.get(q.key);
+    nextDay.quests.push({
+      ...q,
+      id: existing?.id || `${nextDay.date}#p${index}#${q.key}`,
+      xp: Math.round(q.xp * 1.5),
+      done: !!existing?.done,
+      excused: !!existing?.excused,
+      penalty: true,
+      recoveryFor: prevDay.date,
+      slot: "penalty",
+    });
+  });
+
+  nextDay.quests.sort((a, b) => {
+    const av = typeof a.slot === "number" ? a.slot : 99;
+    const bv = typeof b.slot === "number" ? b.slot : 99;
+    return av - bv;
+  });
+  return nextDay;
+}
+
+/** Reconcile every adjacent generated board through the current day. */
+export function reconcileCarryovers(days, throughKey) {
+  Object.keys(days || {}).filter((key) => key <= throughKey).sort().forEach((key) => {
+    const nextKey = shiftKey(key, 1);
+    if (nextKey <= throughKey && days[nextKey]) reconcileDayCarry(days[nextKey], days[key]);
+  });
+  return days;
+}
+
 export function dayAvailableXp(day) {
   return day.quests.reduce((s, q) => s + q.xp, 0);
 }
@@ -1357,3 +1414,4 @@ export function extraByStat(day) {
   });
   return out;
 }
+
