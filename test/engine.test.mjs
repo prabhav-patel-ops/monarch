@@ -84,7 +84,7 @@ t("levelFromTotalXp tolerates negative input", () => {
 t("a full weekday is worth roughly one early level", () => {
   const day = generateDay("2026-09-01", DEFAULT_TEMPLATES, DEFAULT_PROGRESSION, null);
   const avail = dayAvailableXp(day);
-  assert.ok(avail > 200 && avail <= 400, `weekday xp was ${avail}`);
+  assert.ok(avail > 300 && avail <= 500, `weekday xp was ${avail}`);
   assert.ok(levelFromTotalXp(avail).level >= 2, "first full day should reach level 2");
 });
 
@@ -171,7 +171,7 @@ t("tomorrow timetable is a low-XP compulsory gate on every day", () => {
 t("generic routine details resolve local progression placeholders", () => {
   const day = generateDay("2026-09-01", DEFAULT_TEMPLATES, { cfBand: 1650, hullPages: 21, teasers: 4 }, null);
   assert.match(day.quests.find((q) => q.key === "whood").detail, /focused block/);
-  assert.match(day.quests.find((q) => q.key === "hull_eve").detail, /21/);
+  assert.match(day.quests.find((q) => q.key === "hull_eve").detail, /options knowledge/i);
   assert.match(day.quests.find((q) => q.key === "teasers").detail, /4/);
 });
 
@@ -470,7 +470,9 @@ t("every weekday is covered by a template", () => {
     assert.equal(find("whood").title, "Focus block");
     assert.match(find("whood").detail, /focused block/);
     assert.match(find("teasers").detail, /2 deliberate/);
-    assert.match(find("hull_eve").detail, /15 pages/);
+    assert.equal(find("hull_eve").title, "Options knowledge");
+    assert.match(find("hull_eve").detail, /options knowledge/i);
+    assert.equal(find("apply_five").required, true);
     day.quests.forEach((q) => assert.ok(q.detail.length > 0, `${q.key} has no detail`));
   });
 
@@ -606,7 +608,19 @@ t("every weekday is covered by a template", () => {
       assert.equal(quests.find((q) => q.key.startsWith("whood")).title, "Focus block");
       assert.ok(!keys.some((k) => k === "cf" || k.startsWith("cf_")), `day ${d} has no compulsory Codeforces`);
       assert.ok(keys.includes("projects_maths"), `day ${d} has Projects and Maths`);
+      assert.ok(keys.includes("hull_eve"), `day ${d} has Options knowledge`);
+      assert.equal(quests.find((q) => q.key === "apply_five").required, true, `day ${d} requires five applications`);
+      assert.equal(keys.includes("resume_review"), d === "0" || d === "6", `day ${d} has the correct resume-review schedule`);
     });
+  });
+
+  t("the normal clear bar is 80 percent and compulsory applications still gate the day", () => {
+    const board = generateDay("2026-11-16", emptyState().templates, {}, null, 0.8);
+    board.quests.forEach((q) => (q.done = true));
+    board.quests.find((q) => q.key === "apply_five").done = false;
+    assert.equal(isDayCleared(board, "normal"), false, "five applications are compulsory even above the XP bar");
+    board.quests.find((q) => q.key === "apply_five").done = true;
+    assert.equal(isDayCleared(board, "normal"), true);
   });
 
   t("Monday has the Projects and Maths replacement block", () => {
@@ -721,16 +735,18 @@ t("every weekday is covered by a template", () => {
   t("the charge starts exactly at the bar, not before it", () => {
     const under = mk("2026-08-10", 0.6);
     const over = mk("2026-08-10", 0.9);
-    assert.ok(E.gradeDay(under, "normal").ratio < 0.7, "the fixture really is under the bar");
-    assert.ok(E.gradeDay(over, "normal").ratio >= 0.7, "and this one really is over it");
+    assert.ok(E.gradeDay(under, "normal").ratio < 0.8, "the fixture really is under the bar");
+    assert.ok(E.gradeDay(over, "normal").ratio >= 0.8, "and this one really is over it");
     assert.equal(E.dayPenalty(over, 1, undefined, "normal").total, 0, "over the bar costs nothing");
     assert.ok(E.dayPenalty(under, 1, undefined, "normal").total > 0, "under it does");
   });
 
   t("the same day is free or charged depending on the standard", () => {
-    const d = mk("2026-08-10", 0.8);
+    const d = { date: "2026-08-10", generated: true, quests: Array.from({ length: 20 }, (_, i) => ({
+      id: `standard-${i}`, key: `standard-${i}`, title: "Standard", stat: "INT", xp: 10, done: i < 16,
+    })) };
     const cost = (m) => E.dayPenalty(d, 1, E.difficultyOf(m).depth, m).total;
-    assert.equal(cost("normal"), 0, "clears at 70%");
+    assert.equal(cost("normal"), 0, "clears at 80%");
     assert.ok(cost("hard") > 0, "does not clear at the harder bar");
     assert.ok(cost("monarch") > cost("hard"), "and monarch charges it harder still");
   });
@@ -1055,8 +1071,8 @@ const mkDay = (dk, ratio) => {
 };
 
 t("hard mode raises the bar a day has to clear", () => {
-  const d = mkDay("2026-08-31", 0.75);
-  assert.equal(isDayCleared(d, "normal"), true, "75% clears at the 70% bar");
+  const d = mkDay("2026-08-31", 0.8);
+  assert.equal(isDayCleared(d, "normal"), true, "80% clears at the standard bar");
   assert.equal(isDayCleared(d, "hard"), false, "the same day does not clear at 85%");
   assert.equal(isDayCleared(d, "monarch"), false);
 });
@@ -1451,7 +1467,7 @@ const barDay = (ratio, bar) => {
   return { generated: true, quests, bar };
 };
 
-const weeksOf = (ratios, bar = 0.7) => {
+const weeksOf = (ratios, bar = 0.8) => {
   const days = {};
   ratios.forEach((r, i) => { days[shiftKey(START, i)] = barDay(r, bar); });
   return days;
@@ -1459,7 +1475,7 @@ const weeksOf = (ratios, bar = 0.7) => {
 
 t("the bar holds for the first week", () => {
   const days = weeksOf(Array(6).fill(1));
-  assert.equal(earnedBar(days, shiftKey(START, 6), "normal", START), 0.7,
+  assert.equal(earnedBar(days, shiftKey(START, 6), "normal", START), 0.8,
     "nothing has been earned before a week is complete");
 });
 
@@ -1467,23 +1483,23 @@ t("a cleared week raises the bar by one step", () => {
   const days = weeksOf(Array(14).fill(1));
   const after1 = earnedBar(days, shiftKey(START, 7), "normal", START);
   const after2 = earnedBar(days, shiftKey(START, 14), "normal", START);
-  assert.equal(+(after1 - 0.7).toFixed(4), BAR_STEP);
-  assert.equal(+(after2 - 0.7).toFixed(4), +(BAR_STEP * 2).toFixed(4), "and again the week after");
+  assert.equal(+(after1 - 0.8).toFixed(4), BAR_STEP);
+  assert.equal(+(after2 - 0.8).toFixed(4), +(BAR_STEP * 2).toFixed(4), "and again the week after");
 });
 
 t("a week you did not clear earns nothing, and does not bury you either", () => {
   // Five days cleared is the threshold; four is not.
   const good = weeksOf([1, 1, 1, 1, 1, 0.2, 0.2]);
   const bad = weeksOf([1, 1, 1, 1, 0.2, 0.2, 0.2]);
-  assert.ok(earnedBar(good, shiftKey(START, 7), "normal", START) > 0.7, "five of seven earns it");
-  assert.equal(earnedBar(bad, shiftKey(START, 7), "normal", START), 0.7, "four does not");
-  assert.ok(earnedBar(bad, shiftKey(START, 7), "normal", START) >= 0.7, "and never drops below the floor");
+  assert.ok(earnedBar(good, shiftKey(START, 7), "normal", START) > 0.8, "five of seven earns it");
+  assert.equal(earnedBar(bad, shiftKey(START, 7), "normal", START), 0.8, "four does not");
+  assert.ok(earnedBar(bad, shiftKey(START, 7), "normal", START) >= 0.8, "and never drops below the floor");
 });
 
 t("the bar stops climbing at the cap", () => {
   const days = weeksOf(Array(400).fill(1));
   const far = earnedBar(days, shiftKey(START, 371), "normal", START);
-  assert.equal(+(far - 0.7).toFixed(4), BAR_MAX_LIFT, "it tops out rather than becoming impossible");
+  assert.equal(+(far - 0.8).toFixed(4), BAR_MAX_LIFT, "it tops out rather than becoming impossible");
   assert.ok(far <= 1, "and never asks for more than the whole board");
 });
 
@@ -1514,13 +1530,13 @@ t("a day carries the bar it was generated under", () => {
 
   const plain = generateDay("2026-09-07", DEFAULT_TEMPLATES, DEFAULT_PROGRESSION, null);
   assert.equal(plain.bar, undefined, "an unstamped day falls back to the difficulty");
-  assert.equal(gradeDay(plain, "normal").bar, 0.7);
+  assert.equal(gradeDay(plain, "normal").bar, 0.8);
 });
 
 t("barLift reports what the screen needs and nothing it does not", () => {
   const days = weeksOf(Array(21).fill(1));
   const lift = barLift(days, shiftKey(START, 21), "normal", START);
-  assert.equal(lift.base, 0.7);
+  assert.equal(lift.base, 0.8);
   assert.ok(lift.bar > lift.base);
   assert.equal(lift.atCap, false);
   assert.equal(+lift.lift.toFixed(4), +(lift.bar - lift.base).toFixed(4));
@@ -1533,4 +1549,5 @@ t("a level always costs more than the one before it", () => {
 });
 
 console.log(`\n${pass} passing`);
+
 
