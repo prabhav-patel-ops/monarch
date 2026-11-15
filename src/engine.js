@@ -204,8 +204,8 @@ export function dayEarnedXp(day) {
   return day.quests.filter((q) => q.done).reduce((s, q) => s + q.xp, 0);
 }
 
-// A day is "cleared" at 70% of available XP — deliberately not all-or-nothing.
-export const CLEAR_THRESHOLD = 0.7;
+// The standard board clears at 80%. Required quests must still be completed.
+export const CLEAR_THRESHOLD = 0.8;
 
 export function isDayCleared(day, mode) {
   const avail = dayAvailableXp(day);
@@ -446,6 +446,32 @@ export function applyRatchet(days, endKey, prog, settings = {}) {
 }
 
 /* ---------- streak ---------- */
+
+/**
+ * Remove only next-day carryovers that explicitly point to a task the user
+ * later corrected on its original day. This never invents quests, touches a
+ * legacy unlinked penalty, or re-grades another historical day.
+ */
+export function pruneResolvedCarryovers(days, throughKey) {
+  let removed = 0;
+  let unlinked = 0;
+  Object.entries(days || {}).forEach(([key, day]) => {
+    if (key > throughKey || !Array.isArray(day?.quests)) return;
+    day.quests = day.quests.filter((q) => {
+      if (!q.recoveryFor) return true;
+      const source = days[q.recoveryFor]?.quests?.find((candidate) => candidate.key === q.key && !candidate.penalty);
+      if (!source || (!source.done && !source.excused)) return true;
+      if (q.penalty) {
+        removed += 1;
+        return false;
+      }
+      delete q.recoveryFor;
+      unlinked += 1;
+      return true;
+    });
+  });
+  return { removed, unlinked };
+}
 
 // Include the day before rollout: its penalty work could have been completed
 // on rollout day. Older confirmed streak records stay unchanged.
@@ -830,9 +856,9 @@ export function progressionFor(ex, training, endKey) {
 
 export const DIFFICULTY = {
   normal: {
-    key: "normal", label: "Normal", clearBar: 0.7, depth: PENALTY_DEPTH,
+    key: "normal", label: "Normal", clearBar: 0.8, depth: PENALTY_DEPTH,
     lapseBar: LAPSE_BAR, forgiveEvery: FORGIVE_EVERY,
-    blurb: "A day clears at 70%. Slips are charged gently and three clean days forgive one.",
+    blurb: "A day clears at 80%. Required tasks still decide the day, and two clean days forgive one lapse.",
   },
   hard: {
     key: "hard", label: "Hard", clearBar: 0.85, depth: 1.75,
@@ -1357,3 +1383,4 @@ export function extraByStat(day) {
   });
   return out;
 }
+
