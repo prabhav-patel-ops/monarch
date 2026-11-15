@@ -10,12 +10,13 @@ import {
   restoreLatestSnapshot,
   listRecoveryCheckpoints,
   restoreRecoveryCheckpoint,
+  createRecoverySnapshot,
   requestPersistentStorage,
 } from "./store.js";
 import {
   dateKey, shiftKey, generateDay, recomputeTotals, computeStreak,
   levelFromTotalXp, rankFromLevel, applyRatchet, daysBetween,
-  pendingAlerts,
+  pendingAlerts, pruneResolvedCarryovers,
   sideXp, STATS, earnedBar,
 } from "./engine.js";
 import { Ico, chime } from "./ui.jsx";
@@ -81,6 +82,8 @@ const TABS = [
   { id: "shadows", label: "Shadows", icon: Ico.shadow },
   { id: "system", label: "System", icon: Ico.system },
 ];
+const PRIMARY_TABS = ["quests", "status", "calendar"];
+const MORE_TABS = TABS.filter((tab) => !PRIMARY_TABS.includes(tab.id));
 
 const GATE_REWARDS = { E: 50, D: 100, C: 250, B: 500, A: 1000, S: 2000 };
 
@@ -95,6 +98,7 @@ export default function App() {
   const [persistenceStatus, setPersistenceStatus] = useState("checking");
   const writeHash = useRef(initialLoad.current.hash || null);
   const [tab, setTab] = useState("quests");
+  const [moreOpen, setMoreOpen] = useState(false);
   const [levelUp, setLevelUp] = useState(null);
   const [levelDown, setLevelDown] = useState(null);
   const [toast, setToast] = useState(null);
@@ -144,6 +148,9 @@ export default function App() {
           return prev;
         }
         const draft = mutate(clone(prev));
+        // A past correction may make an explicitly linked next-day penalty
+        // obsolete. Prune that one link only; never rebuild history here.
+        pruneResolvedCarryovers(draft.days, todayKey);
 
         const { prog, raised } = applyRatchet(draft.days, todayKey, draft.progression, draft.settings);
         draft.progression = prog;
@@ -315,10 +322,11 @@ export default function App() {
       if (clearing) {
         if (stateRef.current?.settings?.soundOn) chime("quest");
         if (!before.routine) questFx(before);
-        flash(before.routine ? "Compulsory routine complete" : `${before.stat} +${before.xp}`);
+        if (dk < todayKey) flash("Past task corrected — linked penalty and streak updated");
+        else flash(before.routine ? "Compulsory routine complete" : `${before.stat} +${before.xp}`);
       }
     },
-    [commit, flash, questFx]
+    [commit, flash, questFx, todayKey]
   );
 
   const onExcuse = useCallback(
@@ -771,14 +779,44 @@ export default function App() {
         {tab === "system" && <SystemChat {...shared} />}
       </main>
 
-      <nav className="nav" style={{ "--mn-tabs": TABS.length, "--mn-active": tabIndex }}>
+      {moreOpen && (
+        <div className="mn-more-backdrop" role="presentation" onClick={() => setMoreOpen(false)}>
+          <section className="mn-more-sheet" role="dialog" aria-modal="true" aria-label="More sections" onClick={(event) => event.stopPropagation()}>
+            <div className="mn-more-head">
+              <div>
+                <div className="hud">More</div>
+                <div className="faint">Training, focus and system tools</div>
+              </div>
+              <button className="mn-more-close" onClick={() => setMoreOpen(false)} aria-label="Close more sections">×</button>
+            </div>
+            <div className="mn-more-grid">
+              {MORE_TABS.map((item) => (
+                <button
+                  key={item.id}
+                  data-on={tab === item.id}
+                  onClick={() => { setTab(item.id); setMoreOpen(false); }}
+                >
+                  <item.icon />
+                  <span>{item.label}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        </div>
+      )}
+
+      <nav className="nav" style={{ "--mn-tabs": 4, "--mn-active": PRIMARY_TABS.includes(tab) ? PRIMARY_TABS.indexOf(tab) : 3 }} aria-label="Main navigation">
         <span className="mn-nav-pill" aria-hidden="true" />
-        {TABS.map((t) => (
-          <button key={t.id} data-on={tab === t.id} onClick={() => setTab(t.id)} aria-label={t.label}>
+        {TABS.filter((item) => PRIMARY_TABS.includes(item.id)).map((t) => (
+          <button key={t.id} data-on={tab === t.id} onClick={() => { setTab(t.id); setMoreOpen(false); }} aria-label={t.label}>
             <t.icon />
             <span className="tab-label">{t.label}</span>
           </button>
         ))}
+        <button data-on={!PRIMARY_TABS.includes(tab)} onClick={() => setMoreOpen(true)} aria-label="More sections" aria-expanded={moreOpen}>
+          <Ico.system />
+          <span className="tab-label">{PRIMARY_TABS.includes(tab) ? "More" : TABS.find((item) => item.id === tab)?.label || "More"}</span>
+        </button>
       </nav>
 
       {toast && <div className="toast mn-toast">{toast}</div>}
@@ -835,5 +873,6 @@ export default function App() {
     </div>
   );
 }
+
 
 

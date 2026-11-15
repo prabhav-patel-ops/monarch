@@ -247,6 +247,8 @@ t("the app shell renders end to end", () => {
   const html = renderToStaticMarkup(React.createElement(App));
   assert.match(html, /Hunter|Status/);
   assert.ok(html.includes("<nav"), "the tab bar is present");
+  assert.equal((html.match(/<nav[\s\S]*?<\/nav>/)?.[0].match(/<button/g) || []).length, 4,
+    "the mobile bar keeps three main destinations plus More");
 });
 
 t("the app shell reports when a local save is present", () => {
@@ -293,4 +295,5 @@ t("the daily nail-biting counter renders its count, controls and seven-day histo
 });
 
 console.log(`\n${pass} passing`);
+
 
