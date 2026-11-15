@@ -45,7 +45,7 @@
    A pill tracks the active tab instead of the colour simply cutting
    across. The spring overshoots once, slightly, and settles. */
 
-.nav{position:relative}
+.nav{position:fixed}
 
 .mn-nav-pill{
   position:absolute;
@@ -212,3 +212,4 @@ input:focus,select:focus,textarea:focus{transform:translateY(-1px)}
   from{opacity:0}
   to{opacity:1}
 }
+
