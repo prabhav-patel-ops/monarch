@@ -26,14 +26,20 @@ const FOCUS = { key: "whood", title: "Focus block", detail: "One focused block o
 const PROBLEMS = { key: "teasers", title: "Problem-solving block", detail: "Complete {teasers} deliberate problems.", stat: "PER", xp: 25, slot: 5 };
 const WORK = { key: "office", title: "Work block", detail: "Finish one meaningful work outcome.", stat: "INT", xp: 45, slot: 6 };
 const CAREER = { key: "career_daily", title: "Career block", detail: "Move one career action forward.", stat: "PER", xp: 30, slot: 7 };
-const STUDY = { key: "hull_eve", title: "Study block", detail: "Study {hullPages} pages with understanding.", stat: "INT", xp: 60, slot: 8 };
-const PROJECT = { key: "projects_maths", title: "Project block", detail: "Advance one project or structured learning block.", stat: "INT", xp: 70, slot: 9 };
+const APPLY = { key: "apply_five", title: "Apply to 5 companies", detail: "Submit five thoughtful, role-relevant applications and record them.", stat: "PER", xp: 80, slot: 7.5, required: true };
+const STUDY = { key: "hull_eve", title: "Options knowledge", detail: "Build practical options knowledge with focused study and notes.", stat: "INT", xp: 60, slot: 8 };
+const PROJECT = { key: "projects_maths", title: "Projects / Maths", detail: "Advance a quant project or complete a deliberate maths block.", stat: "INT", xp: 70, slot: 9 };
+const RESUME = { key: "resume_review", title: "Resume review", detail: "Review the resume against target roles and improve one meaningful detail.", stat: "PER", xp: 40, slot: 10 };
 const REVIEW = { key: "review", title: "Weekly review", detail: "Review the week and plan the next one.", stat: "VIT", xp: 35, slot: 11 };
 const CLOSE_DAY = { key: "sleep", title: "Close the day", detail: "Finish at the bedtime stored on this device.", stat: "VIT", xp: 15, slot: 12 };
 
-const WEEKDAY = [START_DAY, MOVEMENT, NUTRITION, FOCUS, PROBLEMS, WORK, CAREER, STUDY, PROJECT, CLOSE_DAY];
-const SATURDAY = [START_DAY, MOVEMENT, NUTRITION, { ...FOCUS, key: "whood_weekend" }, { ...PROBLEMS, xp: 30 }, PROJECT, CLOSE_DAY];
-const SUNDAY = [START_DAY, { key: "rest", title: "Recovery block", detail: "Take the recovery planned on this device.", stat: "VIT", xp: 40, slot: 2 }, NUTRITION, { ...FOCUS, key: "whood_upsolve" }, { ...PROBLEMS, xp: 30 }, PROJECT, REVIEW, CLOSE_DAY];
+const WEEKDAY = [START_DAY, MOVEMENT, NUTRITION, FOCUS, PROBLEMS, WORK, CAREER, APPLY, STUDY, PROJECT, CLOSE_DAY];
+const SATURDAY = [START_DAY, MOVEMENT, NUTRITION, { ...FOCUS, key: "whood_weekend" }, { ...PROBLEMS, xp: 30 }, APPLY, STUDY, PROJECT, RESUME, CLOSE_DAY];
+const SUNDAY = [START_DAY, { key: "rest", title: "Recovery block", detail: "Take the recovery planned on this device.", stat: "VIT", xp: 40, slot: 2 }, NUTRITION, { ...FOCUS, key: "whood_upsolve" }, { ...PROBLEMS, xp: 30 }, APPLY, STUDY, PROJECT, RESUME, REVIEW, CLOSE_DAY];
+
+// Exported for the save migration. Existing devices receive these goal-facing
+// rows without replacing the rest of their private routine or rewriting history.
+export const JOB_QUESTS = { APPLY, STUDY, PROJECT, RESUME };
 
 // These are neutral starter templates, not a bundled user's routine. Existing
 // devices keep their private templates from monarch.v1 during migration.
@@ -363,4 +369,5 @@ export const DEFAULT_REMINDERS = [];
    and show you the cost, which is a different mechanism and an honest one.     */
 
 export const FOCUS_TARGETS = [];
+
 
