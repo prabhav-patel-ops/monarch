@@ -1,7 +1,7 @@
 import {
   DEFAULT_PROGRESSION, DEFAULT_TEMPLATES, MISSION,
   SEED_GATES, SEED_SHADOWS, SEEDS_VERSION,
-  DEFAULT_REMINDERS, FOCUS_TARGETS,
+  DEFAULT_REMINDERS, FOCUS_TARGETS, JOB_QUESTS,
 } from "./data.js";
 import { STATS, DEFAULT_SCHEDULE, dateKey } from "./engine.js";
 import { DEFAULT_ROUTINE_PLAN, ensureRoutines, upgradeBuiltInRoutinePlan, validateRoutinePlan } from "./routines.js";
@@ -25,9 +25,54 @@ const MAX_LINEAGE = 100;
 /* Bump when DEFAULT_TEMPLATES changes shape OR when quest XP is repriced.
    Saved templates below this are replaced on load, because an old save can
    carry stale quest copy and stale prices. */
-export const TEMPLATES_VERSION = 13;
+export const TEMPLATES_VERSION = 14;
 
 const DIFFICULTY_KEYS = ["normal", "hard", "monarch"];
+
+const jobRowsForWeekday = (weekday) => [
+  JOB_QUESTS.APPLY,
+  JOB_QUESTS.STUDY,
+  JOB_QUESTS.PROJECT,
+  ...(weekday === 0 || weekday === 6 ? [JOB_QUESTS.RESUME] : []),
+];
+
+function ensureJobTemplates(templates) {
+  for (let weekday = 0; weekday < 7; weekday += 1) {
+    const rows = Array.isArray(templates[weekday]) ? templates[weekday] : [];
+    rows.splice(0, rows.length, ...rows.filter((q) => q.key !== JOB_QUESTS.RESUME.key || weekday === 0 || weekday === 6));
+    jobRowsForWeekday(weekday).forEach((template) => {
+      const existing = rows.find((q) => q.key === template.key);
+      if (existing) Object.assign(existing, template, { xp: template.key === JOB_QUESTS.APPLY.key ? template.xp : (existing.xp || template.xp) });
+      else rows.push({ ...template });
+    });
+    rows.sort((a, b) => (Number.isFinite(a.slot) ? a.slot : 99) - (Number.isFinite(b.slot) ? b.slot : 99));
+    templates[weekday] = rows;
+  }
+}
+
+function ensureJobDay(day, weekday) {
+  if (!day || !Array.isArray(day.quests)) return;
+  day.quests = day.quests.filter((q) => q.penalty || q.key !== JOB_QUESTS.RESUME.key || weekday === 0 || weekday === 6);
+  jobRowsForWeekday(weekday).forEach((template, index) => {
+    const existing = day.quests.find((q) => q.key === template.key && !q.penalty);
+    if (existing) {
+      const progress = { id: existing.id, done: !!existing.done, excused: !!existing.excused };
+      Object.assign(existing, template, progress, { xp: template.key === JOB_QUESTS.APPLY.key ? template.xp : (existing.xp || template.xp) });
+    } else {
+      day.quests.push({
+        ...template,
+        id: `${day.date}#job${index}#${template.key}`,
+        done: false,
+        penalty: false,
+      });
+    }
+  });
+  day.quests.sort((a, b) => {
+    const av = Number.isFinite(a.slot) ? a.slot : 99;
+    const bv = Number.isFinite(b.slot) ? b.slot : 99;
+    return av - bv;
+  });
+}
 
 function bundledState() {
   return emptyState();
@@ -165,13 +210,18 @@ export function hydrate(parsed) {
     }
 
     merged.templates = privateTemplates;
+    ensureJobTemplates(merged.templates);
     merged.templatesVersion = TEMPLATES_VERSION;
   }
 
   const routineToday = dateKey(new Date());
   merged.routinePlan = validateRoutinePlan(upgradeBuiltInRoutinePlan(parsed.routinePlan));
   Object.entries(merged.days).forEach(([key, day]) => {
-    if (key >= routineToday) ensureRoutines(day, merged.routinePlan);
+    if (key >= routineToday) {
+      ensureRoutines(day, merged.routinePlan);
+      ensureJobDay(day, new Date(`${key}T12:00:00`).getDay());
+      if (merged.settings.difficulty === "normal") day.bar = Math.max(Number(day.bar) || 0, 0.8);
+    }
   });
   return merged;
 }
@@ -827,5 +877,6 @@ export function prepareImport(text, currentState = null) {
 export function importJson(text) {
   return prepareImport(text).state;
 }
+
 
 
