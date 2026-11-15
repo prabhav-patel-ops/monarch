@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {
-  computeStreak, dayPenalty, generateDay, isDayCleared, streakRecovery,
+  computeStreak, dayPenalty, generateDay, isDayCleared, pruneResolvedCarryovers, streakRecovery,
 } from "../src/engine.js";
 
 function quest(key, xp, done = false, extra = {}) {
@@ -142,4 +142,25 @@ assert.equal(streakRecovery(picturedDays, oct9Screenshot.date).total, 2);
 assert.equal(streakRecovery(picturedDays, oct9Screenshot.date).complete, true,
   "both visible penalties restore October 9 even with a normal Brainteasers quest undone");
 
+const corrected = day("2026-11-14", [quest("apply", 80, true), quest("study", 20, true)]);
+const afterCorrection = day("2026-11-15", [
+  quest("apply", 120, false, { penalty: true, recoveryFor: corrected.date }),
+  quest("study", 20, false, { recoveryFor: corrected.date }),
+  quest("legacy", 30, false, { penalty: true }),
+]);
+const correctedDays = { [corrected.date]: corrected, [afterCorrection.date]: afterCorrection };
+assert.deepEqual(pruneResolvedCarryovers(correctedDays, afterCorrection.date), { removed: 1, unlinked: 1 });
+assert.equal(afterCorrection.quests.some((q) => q.key === "apply" && q.penalty), false,
+  "a penalty explicitly linked to the corrected source task is removed");
+assert.equal(afterCorrection.quests.find((q) => q.key === "study").recoveryFor, undefined,
+  "the normal repeated row remains but stops acting as catch-up work");
+assert.ok(afterCorrection.quests.some((q) => q.key === "legacy" && q.penalty),
+  "an unlinked historical penalty is never guessed at or removed");
+
+const stillMissed = day("2026-11-14", [quest("open", 50, false)]);
+const stillCarried = day("2026-11-15", [quest("open", 75, false, { penalty: true, recoveryFor: stillMissed.date })]);
+pruneResolvedCarryovers({ [stillMissed.date]: stillMissed, [stillCarried.date]: stillCarried }, stillCarried.date);
+assert.equal(stillCarried.quests.length, 1, "unfinished source work keeps its linked penalty");
+
 console.log("next-day streak recovery keeps missed work, expiry, and historic saves consistent");
+
