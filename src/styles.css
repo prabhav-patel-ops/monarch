@@ -455,6 +455,66 @@ label.field>span{
   color:var(--rune)}
 .nav>button[data-on=true] svg{
   filter:drop-shadow(0 0 6px rgba(111,168,255,.8))}
+.mn-more-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:70;
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
+  padding:18px 14px calc(var(--nav-h) + var(--sab) + 14px);
+  background:rgba(2,5,12,.72);
+  -webkit-backdrop-filter:blur(7px);
+  backdrop-filter:blur(7px)}
+.mn-more-sheet{
+  width:min(100%,540px);
+  padding:18px;
+  border:1px solid var(--line);
+  border-radius:18px;
+  background:linear-gradient(160deg,rgba(18,31,59,.99),rgba(7,12,25,.99));
+  box-shadow:0 22px 70px rgba(0,0,0,.55)}
+.mn-more-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:14px}
+.mn-more-close{
+  width:40px;
+  height:40px;
+  padding:0;
+  border-radius:12px;
+  clip-path:none;
+  font-size:25px;
+  line-height:1;
+  color:var(--text-dim);
+  background:rgba(255,255,255,.04)}
+.mn-more-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px}
+.mn-more-grid>button{
+  min-height:74px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:14px;
+  border-radius:13px;
+  clip-path:none;
+  text-align:left;
+  color:var(--text-dim);
+  background:rgba(5,10,21,.72);
+  border:1px solid var(--line-soft)}
+.mn-more-grid>button[data-on=true]{
+  color:var(--rune-bright);
+  border-color:var(--rune);
+  background:rgba(111,168,255,.12)}
+.mn-more-grid svg{width:22px;height:22px;flex:none}
+.mn-more-grid span{
+  font-family:Rajdhani,sans-serif;
+  font-weight:700;
+  letter-spacing:.08em;
+  text-transform:uppercase}
 .levelup{
   position:fixed;
   top:0;
@@ -1002,3 +1062,4 @@ to{
   color:var(--int);
   opacity:.85;
   margin-right:2px}
+
