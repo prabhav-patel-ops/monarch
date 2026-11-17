@@ -21,7 +21,7 @@ export const DEFAULT_PROGRESSION = {
 
 const START_DAY = { key: "wake", title: "Start the day", detail: "Begin intentionally.", stat: "VIT", xp: 10, slot: 1 };
 const TUESDAY_START = { ...START_DAY, title: "Wake at 06:00", detail: "Start Tuesday at 6:00 AM." };
-const MOVEMENT = { key: "gym", title: "Movement block", detail: "Complete the movement planned on this device.", stat: "STR", xp: 45, slot: 2 };
+const MOVEMENT = { key: "gym", title: "Training block", detail: "Complete today's planned training session.", stat: "STR", xp: 45, slot: 2 };
 const REST = { key: "rest", title: "Recovery block", detail: "Take the planned recovery day without adding a training session.", stat: "VIT", xp: 40, slot: 2 };
 const NUTRITION = { key: "protein", title: "Nutrition check", detail: "Meet the nutrition target stored on this device.", stat: "VIT", xp: 25, slot: 3 };
 const FOCUS = { key: "whood", title: "Focus block", detail: "One focused block on the work that matters today.", stat: "AGI", xp: 70, slot: 4 };
