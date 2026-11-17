@@ -20,7 +20,9 @@ export const DEFAULT_PROGRESSION = {
    xp is face value; shadows multiply it at award time.        */
 
 const START_DAY = { key: "wake", title: "Start the day", detail: "Begin intentionally.", stat: "VIT", xp: 10, slot: 1 };
+const TUESDAY_START = { ...START_DAY, title: "Wake at 06:00", detail: "Start Tuesday at 6:00 AM." };
 const MOVEMENT = { key: "gym", title: "Movement block", detail: "Complete the movement planned on this device.", stat: "STR", xp: 45, slot: 2 };
+const REST = { key: "rest", title: "Recovery block", detail: "Take the planned recovery day without adding a training session.", stat: "VIT", xp: 40, slot: 2 };
 const NUTRITION = { key: "protein", title: "Nutrition check", detail: "Meet the nutrition target stored on this device.", stat: "VIT", xp: 25, slot: 3 };
 const FOCUS = { key: "whood", title: "Focus block", detail: "One focused block on the work that matters today.", stat: "AGI", xp: 70, slot: 4 };
 const PROBLEMS = { key: "teasers", title: "Problem-solving block", detail: "Complete {teasers} deliberate problems.", stat: "PER", xp: 25, slot: 5 };
@@ -33,20 +35,22 @@ const RESUME = { key: "resume_review", title: "Resume review", detail: "Review t
 const REVIEW = { key: "review", title: "Weekly review", detail: "Review the week and plan the next one.", stat: "VIT", xp: 35, slot: 11 };
 const CLOSE_DAY = { key: "sleep", title: "Close the day", detail: "Finish at the bedtime stored on this device.", stat: "VIT", xp: 15, slot: 12 };
 
-const WEEKDAY = [START_DAY, MOVEMENT, NUTRITION, FOCUS, PROBLEMS, WORK, CAREER, APPLY, STUDY, PROJECT, CLOSE_DAY];
-const SATURDAY = [START_DAY, MOVEMENT, NUTRITION, { ...FOCUS, key: "whood_weekend" }, { ...PROBLEMS, xp: 30 }, APPLY, STUDY, PROJECT, RESUME, CLOSE_DAY];
-const SUNDAY = [START_DAY, { key: "rest", title: "Recovery block", detail: "Take the recovery planned on this device.", stat: "VIT", xp: 40, slot: 2 }, NUTRITION, { ...FOCUS, key: "whood_upsolve" }, { ...PROBLEMS, xp: 30 }, APPLY, STUDY, PROJECT, RESUME, REVIEW, CLOSE_DAY];
+const WEEKDAY = [START_DAY, MOVEMENT, NUTRITION, FOCUS, PROBLEMS, WORK, APPLY, STUDY, PROJECT, CLOSE_DAY];
+const TUESDAY = [TUESDAY_START, REST, NUTRITION, FOCUS, PROBLEMS, WORK, APPLY, STUDY, PROJECT, CLOSE_DAY];
+const SATURDAY = [START_DAY, MOVEMENT, NUTRITION, { ...FOCUS, key: "whood_weekend" }, { ...PROBLEMS, xp: 30 }, CAREER, APPLY, STUDY, PROJECT, RESUME, CLOSE_DAY];
+const SUNDAY = [START_DAY, MOVEMENT, NUTRITION, { ...FOCUS, key: "whood_upsolve" }, { ...PROBLEMS, xp: 30 }, CAREER, APPLY, STUDY, PROJECT, RESUME, REVIEW, CLOSE_DAY];
 
 // Exported for the save migration. Existing devices receive these goal-facing
 // rows without replacing the rest of their private routine or rewriting history.
 export const JOB_QUESTS = { APPLY, STUDY, PROJECT, RESUME };
+export const WEEKLY_QUESTS = { CAREER, TUESDAY_START, MOVEMENT, REST };
 
 // These are neutral starter templates, not a bundled user's routine. Existing
 // devices keep their private templates from monarch.v1 during migration.
 export const DEFAULT_TEMPLATES = {
   0: SUNDAY,
   1: WEEKDAY,
-  2: WEEKDAY,
+  2: TUESDAY,
   3: WEEKDAY,
   4: WEEKDAY,
   5: WEEKDAY,
@@ -369,5 +373,6 @@ export const DEFAULT_REMINDERS = [];
    and show you the cost, which is a different mechanism and an honest one.     */
 
 export const FOCUS_TARGETS = [];
+
 
 

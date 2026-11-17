@@ -175,6 +175,10 @@ export function generateDay(dk, templatesByWeekday, prog, prevDay, bar, routineP
       // A recurring quest is already on today's board. Completing that one
       // covers the missed task without showing two identical rows.
       const scheduled = quests.find((x) => x.key === q.key);
+      // Schedule-specific blocks stay on their intended days. A missed
+      // workout must not invade a recovery day, and weekend-only career work
+      // must not reappear as a weekday penalty.
+      if (!scheduled && ["gym", "rest", "career_daily"].includes(q.key)) return;
       if (scheduled) {
         scheduled.recoveryFor = prevDay.date;
         return;
@@ -1285,7 +1289,7 @@ export function pendingAlerts(state, todayKey, nowMins = 0) {
 
   const t = state.body?.training?.[todayKey];
   const trained = t && ((t.done || []).length > 0 || Object.keys(t.sets || {}).length > 0);
-  if (!trained && nowMins >= 19 * 60 && parseKey(todayKey).getDay() !== 0) {
+  if (!trained && nowMins >= 19 * 60 && parseKey(todayKey).getDay() !== 2) {
     out.push({ id: "training", level: "warn", title: "Nothing logged in the dungeon", body: "No sets recorded today.", action: "dungeon" });
   }
 
@@ -1383,4 +1387,5 @@ export function extraByStat(day) {
   });
   return out;
 }
+
 

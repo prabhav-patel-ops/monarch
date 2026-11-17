@@ -203,11 +203,12 @@ function Month({ state, todayKey, flash, onJournal }) {
 function Schedule({ state, todayKey, onSchedule, flash }) {
   const sched = state.settings.schedule;
   const day = state.days[todayKey];
-  const restDay = parseKey(todayKey).getDay() === 0;
+  const restDay = parseKey(todayKey).getDay() === 2;
+  const daySchedule = useMemo(() => restDay ? { ...sched, wake: "06:00" } : sched, [sched, restDay]);
 
   const plan = useMemo(
-    () => buildSchedule(day, sched, !restDay),
-    [day, sched, restDay]
+    () => buildSchedule(day, daySchedule, !restDay),
+    [day, daySchedule, restDay]
   );
 
   const nowMins = new Date().getHours() * 60 + new Date().getMinutes();
@@ -520,3 +521,4 @@ export default function Calendar(props) {
     </>
   );
 }
+

@@ -1,7 +1,7 @@
 import {
   DEFAULT_PROGRESSION, DEFAULT_TEMPLATES, MISSION,
   SEED_GATES, SEED_SHADOWS, SEEDS_VERSION,
-  DEFAULT_REMINDERS, FOCUS_TARGETS, JOB_QUESTS,
+  DEFAULT_REMINDERS, FOCUS_TARGETS, JOB_QUESTS, WEEKLY_QUESTS,
 } from "./data.js";
 import { STATS, DEFAULT_SCHEDULE, dateKey } from "./engine.js";
 import { DEFAULT_ROUTINE_PLAN, ensureRoutines, upgradeBuiltInRoutinePlan, validateRoutinePlan } from "./routines.js";
@@ -25,7 +25,7 @@ const MAX_LINEAGE = 100;
 /* Bump when DEFAULT_TEMPLATES changes shape OR when quest XP is repriced.
    Saved templates below this are replaced on load, because an old save can
    carry stale quest copy and stale prices. */
-export const TEMPLATES_VERSION = 14;
+export const TEMPLATES_VERSION = 15;
 
 const DIFFICULTY_KEYS = ["normal", "hard", "monarch"];
 
@@ -67,6 +67,61 @@ function ensureJobDay(day, weekday) {
       });
     }
   });
+  day.quests.sort((a, b) => {
+    const av = Number.isFinite(a.slot) ? a.slot : 99;
+    const bv = Number.isFinite(b.slot) ? b.slot : 99;
+    return av - bv;
+  });
+}
+
+function weeklyRowsForWeekday(weekday) {
+  return [
+    weekday === 2 ? WEEKLY_QUESTS.TUESDAY_START : null,
+    weekday === 2 ? WEEKLY_QUESTS.REST : WEEKLY_QUESTS.MOVEMENT,
+    ...(weekday === 0 || weekday === 6 ? [WEEKLY_QUESTS.CAREER] : []),
+  ].filter(Boolean);
+}
+
+function ensureWeeklyScheduleTemplates(templates) {
+  for (let weekday = 0; weekday < 7; weekday += 1) {
+    const rows = Array.isArray(templates[weekday]) ? templates[weekday] : [];
+    const allowed = new Set(weeklyRowsForWeekday(weekday).map((q) => q.key));
+    const filtered = rows.filter((q) => !["gym", "rest", "career_daily"].includes(q.key) || allowed.has(q.key));
+    weeklyRowsForWeekday(weekday).forEach((template) => {
+      const existing = filtered.find((q) => q.key === template.key);
+      if (existing) Object.assign(existing, template, { xp: existing.xp || template.xp });
+      else filtered.push({ ...template });
+    });
+    if (weekday === 2) {
+      const wake = filtered.find((q) => q.key === "wake");
+      if (wake) Object.assign(wake, WEEKLY_QUESTS.TUESDAY_START, { xp: wake.xp || WEEKLY_QUESTS.TUESDAY_START.xp });
+      else filtered.push({ ...WEEKLY_QUESTS.TUESDAY_START });
+    }
+    filtered.sort((a, b) => (Number.isFinite(a.slot) ? a.slot : 99) - (Number.isFinite(b.slot) ? b.slot : 99));
+    templates[weekday] = filtered;
+  }
+}
+
+function ensureWeeklyScheduleDay(day, weekday) {
+  if (!day || !Array.isArray(day.quests)) return;
+  const allowed = new Set(weeklyRowsForWeekday(weekday).map((q) => q.key));
+  day.quests = day.quests.filter((q) => q.penalty || !["gym", "rest", "career_daily"].includes(q.key) || allowed.has(q.key));
+  weeklyRowsForWeekday(weekday).forEach((template, index) => {
+    const existing = day.quests.find((q) => q.key === template.key && !q.penalty);
+    if (existing) {
+      const progress = { id: existing.id, done: !!existing.done, excused: !!existing.excused };
+      Object.assign(existing, template, progress, { xp: existing.xp || template.xp });
+    } else {
+      day.quests.push({ ...template, id: `${day.date}#weekly${index}#${template.key}`, done: false, penalty: false });
+    }
+  });
+  if (weekday === 2) {
+    const wake = day.quests.find((q) => q.key === "wake" && !q.penalty);
+    if (wake) {
+      const progress = { id: wake.id, done: !!wake.done, excused: !!wake.excused };
+      Object.assign(wake, WEEKLY_QUESTS.TUESDAY_START, progress, { xp: wake.xp || WEEKLY_QUESTS.TUESDAY_START.xp });
+    }
+  }
   day.quests.sort((a, b) => {
     const av = Number.isFinite(a.slot) ? a.slot : 99;
     const bv = Number.isFinite(b.slot) ? b.slot : 99;
@@ -211,6 +266,7 @@ export function hydrate(parsed) {
 
     merged.templates = privateTemplates;
     ensureJobTemplates(merged.templates);
+    ensureWeeklyScheduleTemplates(merged.templates);
     merged.templatesVersion = TEMPLATES_VERSION;
   }
 
@@ -220,6 +276,7 @@ export function hydrate(parsed) {
     if (key >= routineToday) {
       ensureRoutines(day, merged.routinePlan);
       ensureJobDay(day, new Date(`${key}T12:00:00`).getDay());
+      ensureWeeklyScheduleDay(day, new Date(`${key}T12:00:00`).getDay());
       if (merged.settings.difficulty === "normal") day.bar = Math.max(Number(day.bar) || 0, 0.8);
     }
   });
@@ -877,6 +934,7 @@ export function prepareImport(text, currentState = null) {
 export function importJson(text) {
   return prepareImport(text).state;
 }
+
 
 
 
