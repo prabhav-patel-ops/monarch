@@ -82,7 +82,7 @@ t("levelFromTotalXp tolerates negative input", () => {
 });
 
 t("a full weekday is worth roughly one early level", () => {
-  const day = generateDay("2026-09-01", DEFAULT_TEMPLATES, DEFAULT_PROGRESSION, null);
+  const day = generateDay("2026-08-31", DEFAULT_TEMPLATES, DEFAULT_PROGRESSION, null);
   const avail = dayAvailableXp(day);
   assert.ok(avail > 300 && avail <= 500, `weekday xp was ${avail}`);
   assert.ok(levelFromTotalXp(avail).level >= 2, "first full day should reach level 2");
@@ -145,13 +145,17 @@ t("shadow bonuses stack per stat only", () => {
 
 /* ---------- quest generation ---------- */
 
-t("weekday and Sunday templates differ, and Sunday pays for rest", () => {
+t("Tuesday is the recovery day and Sunday returns to training", () => {
   const mon = generateDay("2026-08-31", DEFAULT_TEMPLATES, DEFAULT_PROGRESSION, null); // Monday
+  const tue = generateDay("2026-09-01", DEFAULT_TEMPLATES, DEFAULT_PROGRESSION, null); // Tuesday
   const sun = generateDay("2026-09-06", DEFAULT_TEMPLATES, DEFAULT_PROGRESSION, null); // Sunday
   assert.ok(mon.quests.some((q) => q.key === "gym"), "Monday has gym");
-  assert.ok(!sun.quests.some((q) => q.key === "gym"), "Sunday has no gym");
-  const rest = sun.quests.find((q) => q.key === "rest");
+  assert.ok(!tue.quests.some((q) => q.key === "gym"), "Tuesday has no gym");
+  assert.equal(tue.quests.find((q) => q.key === "wake").title, "Wake at 06:00");
+  const rest = tue.quests.find((q) => q.key === "rest");
   assert.ok(rest && rest.xp > 0, "resting is worth xp");
+  assert.ok(sun.quests.some((q) => q.key === "gym"), "Sunday has training");
+  assert.ok(!sun.quests.some((q) => q.key === "rest"), "Sunday is no longer the recovery day");
 });
 
 t("tomorrow timetable is a low-XP compulsory gate on every day", () => {
@@ -182,25 +186,24 @@ t("quest ids are unique within a day", () => {
 
 /* ---------- penalty carry-forward ---------- */
 
-t("a missed quest not in today's template carries over at 1.5x", () => {
+t("a missed scheduled workout is recovered by the next scheduled workout", () => {
   const sat = generateDay("2026-09-05", DEFAULT_TEMPLATES, DEFAULT_PROGRESSION, null);
-  const virt = sat.quests.find((q) => q.key === "gym");
   sat.quests.forEach((q) => (q.done = q.key !== "gym"));
   const sun = generateDay("2026-09-06", DEFAULT_TEMPLATES, DEFAULT_PROGRESSION, sat);
   const carried = sun.quests.find((q) => q.key === "gym");
-  assert.ok(carried, "missed gym carried into Sunday");
-  assert.equal(carried.penalty, true);
-  assert.equal(carried.xp, Math.round(virt.xp * 1.5));
+  assert.ok(carried, "Sunday keeps its scheduled gym");
+  assert.equal(carried.penalty, false);
+  assert.equal(carried.recoveryFor, sat.date);
   assert.equal(carried.done, false);
 });
 
-t("a missed quest already in today's template is not duplicated", () => {
+t("a missed Monday workout never invades Tuesday recovery", () => {
   const mon = generateDay("2026-08-31", DEFAULT_TEMPLATES, DEFAULT_PROGRESSION, null);
   mon.quests.forEach((q) => (q.done = false));
   const tue = generateDay("2026-09-01", DEFAULT_TEMPLATES, DEFAULT_PROGRESSION, mon);
   const gyms = tue.quests.filter((q) => q.key === "gym");
-  assert.equal(gyms.length, 1, "gym should appear once, not twice");
-  assert.equal(gyms[0].penalty, false);
+  assert.equal(gyms.length, 0, "Tuesday stays a genuine recovery day");
+  assert.equal(tue.quests.filter((q) => q.key === "rest").length, 1);
 });
 
 t("excused quests do not carry over and are not penalised", () => {
@@ -214,7 +217,7 @@ t("excused quests do not carry over and are not penalised", () => {
 });
 
 t("an abandoned day is charged across every stat that was left short", () => {
-  const day = generateDay("2026-09-01", DEFAULT_TEMPLATES, DEFAULT_PROGRESSION, null);
+  const day = generateDay("2026-08-31", DEFAULT_TEMPLATES, DEFAULT_PROGRESSION, null);
   day.quests.forEach((q) => (q.done = false));
   const charge = dayPenalty(day, 1);
   assert.equal(charge.days, PENALTY_DEPTH, "a zero day costs the full penalty depth");
@@ -611,7 +614,46 @@ t("every weekday is covered by a template", () => {
       assert.ok(keys.includes("hull_eve"), `day ${d} has Options knowledge`);
       assert.equal(quests.find((q) => q.key === "apply_five").required, true, `day ${d} requires five applications`);
       assert.equal(keys.includes("resume_review"), d === "0" || d === "6", `day ${d} has the correct resume-review schedule`);
+      assert.equal(keys.includes("career_daily"), d === "0" || d === "6", `day ${d} has the correct career schedule`);
+      assert.equal(keys.includes("rest"), d === "2", `day ${d} has the correct recovery schedule`);
+      assert.equal(keys.includes("gym"), d !== "2", `day ${d} has the correct training schedule`);
     });
+  });
+
+  t("schedule migration changes only today and future boards", () => {
+    const today = dateKey(new Date());
+    const next = (weekday) => {
+      for (let i = 0; i < 7; i += 1) {
+        const key = shiftKey(today, i);
+        if (parseKey(key).getDay() === weekday) return key;
+      }
+      throw new Error("weekday not found");
+    };
+    const past = shiftKey(today, -1);
+    const tue = next(2);
+    const sun = next(0);
+    const legacyDay = (key) => ({
+      date: key, generated: true, quests: [
+        { id: `${key}-wake`, key: "wake", title: "Wake at 05:00", detail: "d", stat: "VIT", xp: 10, slot: 1, done: true },
+        { id: `${key}-gym`, key: "gym", title: "Gym", detail: "d", stat: "STR", xp: 45, slot: 2, done: false },
+        { id: `${key}-rest`, key: "rest", title: "Rest", detail: "d", stat: "VIT", xp: 40, slot: 2, done: false },
+        { id: `${key}-career`, key: "career_daily", title: "Career", detail: "d", stat: "PER", xp: 30, slot: 7, done: false },
+      ],
+    });
+    const old = emptyState();
+    old.templatesVersion = TEMPLATES_VERSION - 1;
+    old.days[past] = legacyDay(past);
+    old.days[tue] = legacyDay(tue);
+    old.days[sun] = legacyDay(sun);
+
+    const fixed = hydrate(JSON.parse(JSON.stringify(old)));
+    assert.ok(fixed.days[past].quests.some((q) => q.key === "career_daily"), "closed history stays untouched");
+    assert.equal(fixed.days[tue].quests.find((q) => q.key === "wake").title, "Wake at 06:00");
+    assert.ok(fixed.days[tue].quests.some((q) => q.key === "rest"));
+    assert.ok(!fixed.days[tue].quests.some((q) => q.key === "gym" || q.key === "career_daily"));
+    assert.ok(fixed.days[sun].quests.some((q) => q.key === "gym"));
+    assert.ok(fixed.days[sun].quests.some((q) => q.key === "career_daily"));
+    assert.ok(!fixed.days[sun].quests.some((q) => q.key === "rest"));
   });
 
   t("the normal clear bar is 80 percent and compulsory applications still gate the day", () => {
@@ -1268,7 +1310,8 @@ t("an untouched dungeon is raised in the evening, but not on a rest day", () => 
   s.body.training = {};
   assert.ok(pendingAlerts(s, "2026-08-31", 20 * 60).some((a) => a.id === "training"), "Monday with nothing logged");
   assert.equal(pendingAlerts(s, "2026-08-31", 12 * 60).length, 0, "not before the evening");
-  assert.equal(pendingAlerts(s, "2026-08-30", 20 * 60).length, 0, "Sunday is a rest day");
+  assert.equal(pendingAlerts(s, "2026-09-01", 20 * 60).length, 0, "Tuesday is a rest day");
+  assert.ok(pendingAlerts(s, "2026-09-06", 20 * 60).some((a) => a.id === "training"), "Sunday now expects training");
 });
 
 t("missed days looks backwards only, and skips days never generated", () => {
@@ -1549,5 +1592,6 @@ t("a level always costs more than the one before it", () => {
 });
 
 console.log(`\n${pass} passing`);
+
 
 
