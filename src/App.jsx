@@ -72,18 +72,19 @@ const FocusIcon = () => (
   </svg>
 );
 
-const TABS = [
+const PRIMARY_TABS = [
   { id: "status", label: "Status", icon: Ico.status },
   { id: "quests", label: "Quests", icon: Ico.quest },
   { id: "calendar", label: "Log", icon: CalIcon },
+];
+const MORE_TABS = [
   { id: "gates", label: "Gates", icon: Ico.gate },
   { id: "dungeon", label: "Body", icon: Ico.body },
   { id: "focus", label: "Focus", icon: FocusIcon },
   { id: "shadows", label: "Shadows", icon: Ico.shadow },
   { id: "system", label: "System", icon: Ico.system },
 ];
-const PRIMARY_TABS = ["quests", "status", "calendar"];
-const MORE_TABS = TABS.filter((tab) => !PRIMARY_TABS.includes(tab.id));
+const TABS = [...PRIMARY_TABS, ...MORE_TABS];
 
 const GATE_REWARDS = { E: 50, D: 100, C: 250, B: 500, A: 1000, S: 2000 };
 
@@ -675,6 +676,8 @@ export default function App() {
   /* Which way the tab bar moved decides which way the page slides, so
      forward and back feel different and the app keeps a sense of place. */
   const tabIndex = Math.max(0, TABS.findIndex((t) => t.id === tab));
+  const moreSelected = tabIndex >= PRIMARY_TABS.length;
+  const navIndex = moreSelected ? PRIMARY_TABS.length : tabIndex;
   const lastTab = useRef(tabIndex);
   const dir = tabIndex >= lastTab.current ? 1 : -1;
   useEffect(() => { lastTab.current = tabIndex; }, [tabIndex]);
@@ -805,17 +808,17 @@ export default function App() {
         </div>
       )}
 
-      <nav className="nav" style={{ "--mn-tabs": 4, "--mn-active": PRIMARY_TABS.includes(tab) ? PRIMARY_TABS.indexOf(tab) : 3 }} aria-label="Main navigation">
+      <nav className="nav" style={{ "--mn-tabs": PRIMARY_TABS.length + 1, "--mn-active": navIndex }} aria-label="Main navigation">
         <span className="mn-nav-pill" aria-hidden="true" />
-        {TABS.filter((item) => PRIMARY_TABS.includes(item.id)).map((t) => (
-          <button key={t.id} data-on={tab === t.id} onClick={() => { setTab(t.id); setMoreOpen(false); }} aria-label={t.label}>
+        {PRIMARY_TABS.map((t, index) => (
+          <button key={t.id} data-on={navIndex === index} aria-current={navIndex === index ? "page" : undefined} onClick={() => { setTab(t.id); setMoreOpen(false); }} aria-label={t.label}>
             <t.icon />
             <span className="tab-label">{t.label}</span>
           </button>
         ))}
-        <button data-on={!PRIMARY_TABS.includes(tab)} onClick={() => setMoreOpen(true)} aria-label="More sections" aria-expanded={moreOpen}>
+        <button data-on={moreSelected} onClick={() => setMoreOpen(true)} aria-label={moreSelected ? `More sections, ${TABS[tabIndex].label}` : "More sections"} aria-current={moreSelected ? "page" : undefined} aria-expanded={moreOpen}>
           <Ico.system />
-          <span className="tab-label">{PRIMARY_TABS.includes(tab) ? "More" : TABS.find((item) => item.id === tab)?.label || "More"}</span>
+          <span className="tab-label">{moreSelected ? TABS[tabIndex].label : "More"}</span>
         </button>
       </nav>
 

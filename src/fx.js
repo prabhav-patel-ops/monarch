@@ -96,8 +96,8 @@ function ensure() {
 function resize() {
   if (!canvas) return;
   dpr = Math.min(2, window.devicePixelRatio || 1);
-  const w = window.innerWidth;
-  const h = window.innerHeight;
+  const w = document.documentElement.clientWidth;
+  const h = document.documentElement.clientHeight;
   canvas.width = Math.floor(w * dpr);
   canvas.height = Math.floor(h * dpr);
   canvas.style.width = `${w}px`;

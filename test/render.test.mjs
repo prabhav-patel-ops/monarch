@@ -251,6 +251,18 @@ t("the app shell renders end to end", () => {
     "the mobile bar keeps three main destinations plus More");
 });
 
+t("the navigation highlight starts on the visible Quests screen", () => {
+  const html = renderToStaticMarkup(React.createElement(App));
+  const [nav] = html.match(/<nav\b[\s\S]*?<\/nav>/);
+  const activeIndex = Number(nav.match(/--mn-active:(\d+)/)[1]);
+  const buttons = nav.match(/<button\b[^>]*>/g);
+  assert.match(html, /Quest board/);
+  assert.equal(buttons.filter((button) => button.includes('data-on="true"')).length, 1);
+  assert.match(buttons[activeIndex], /aria-label="Quests"/);
+  assert.match(buttons[activeIndex], /data-on="true"/);
+  assert.match(buttons[activeIndex], /aria-current="page"/);
+});
+
 t("the app shell reports when a local save is present", () => {
   const original = globalThis.localStorage;
   const saved = JSON.stringify(emptyState());

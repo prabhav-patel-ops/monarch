@@ -61,6 +61,7 @@ h1,h2,h3,h4,.hud,.stat-num,button,.tab-label,.rank-glyph{
   position:relative;
   z-index:1;
   min-height:100%;
+  overflow-x:clip;
   display:flex;
   flex-direction:column;
   max-width:620px;
