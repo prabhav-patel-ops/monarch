@@ -3,7 +3,7 @@ import {
   SEED_GATES, SEED_SHADOWS, SEEDS_VERSION,
   DEFAULT_REMINDERS, FOCUS_TARGETS, JOB_QUESTS, WEEKLY_QUESTS,
 } from "./data.js";
-import { STATS, DEFAULT_SCHEDULE, dateKey } from "./engine.js";
+import { STATS, DEFAULT_SCHEDULE, dateKey, CLEAR_THRESHOLD, FIXED_CLEAR_BAR_FROM } from "./engine.js";
 import { DEFAULT_ROUTINE_PLAN, ensureRoutines, upgradeBuiltInRoutinePlan, validateRoutinePlan } from "./routines.js";
 
 export const KEY = "monarch.v1";
@@ -277,8 +277,8 @@ export function hydrate(parsed) {
       ensureRoutines(day, merged.routinePlan);
       ensureJobDay(day, new Date(`${key}T12:00:00`).getDay());
       ensureWeeklyScheduleDay(day, new Date(`${key}T12:00:00`).getDay());
-      if (merged.settings.difficulty === "normal") day.bar = Math.max(Number(day.bar) || 0, 0.8);
     }
+    if (key >= FIXED_CLEAR_BAR_FROM) day.bar = CLEAR_THRESHOLD;
   });
   return merged;
 }

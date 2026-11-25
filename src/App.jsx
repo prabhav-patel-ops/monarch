@@ -215,8 +215,7 @@ export default function App() {
       for (let i = gap; i >= 0; i--) {
         const k = shiftKey(todayKey, -i);
         if (d.days[k]) continue;
-        /* Each day is stamped with the bar earned by that date, so the
-           standard it was graded under travels with it. */
+        // Stamp each generated day with the bar for its date.
         d.days[k] = generateDay(
           k, d.templates, d.progression, d.days[shiftKey(k, -1)],
           earnedBar(d.days, k, d.settings.difficulty, d.hunter.createdAt), d.routinePlan
