@@ -1541,7 +1541,7 @@ t("a week you did not clear earns nothing, and does not bury you either", () => 
 
 t("the bar stops climbing at the cap", () => {
   const days = weeksOf(Array(400).fill(1));
-  const far = earnedBar(days, shiftKey(START, 371), "normal", START);
+  const far = earnedBar(days, "2026-11-23", "normal", START);
   assert.equal(+(far - 0.8).toFixed(4), BAR_MAX_LIFT, "it tops out rather than becoming impossible");
   assert.ok(far <= 1, "and never asks for more than the whole board");
 });
@@ -1574,6 +1574,29 @@ t("a day carries the bar it was generated under", () => {
   const plain = generateDay("2026-09-07", DEFAULT_TEMPLATES, DEFAULT_PROGRESSION, null);
   assert.equal(plain.bar, undefined, "an unstamped day falls back to the difficulty");
   assert.equal(gradeDay(plain, "normal").bar, 0.8);
+});
+
+t("November 24 and later clear at 80% across difficulties, including saved days", () => {
+  const days = {
+    "2026-11-23": { ...barDay(0.8, 0.9), date: "2026-11-23" },
+    "2026-11-24": { ...barDay(0.8, 0.9), date: "2026-11-24" },
+    "2026-11-25": { ...barDay(0.8, 0.95), date: "2026-11-25" },
+    "2026-11-26": { ...barDay(0.75, 0.95), date: "2026-11-26" },
+  };
+  for (const mode of Object.keys(DIFFICULTY)) {
+    assert.equal(earnedBar(weeksOf(Array(320).fill(1)), "2026-11-27", mode, START), 0.8);
+    assert.equal(gradeDay(days["2026-11-23"], mode).bar, 0.9);
+    assert.equal(gradeDay(days["2026-11-24"], mode).grade, "held");
+    assert.equal(dayPenalty(days["2026-11-25"], 1, undefined, mode).total, 0);
+    assert.equal(gradeDay(days["2026-11-26"], mode).needed, 10);
+    assert.deepEqual(computeStreak(days, "2026-11-26", mode), { current: 2, best: 2 });
+  }
+
+  const today = days["2026-11-26"];
+  today.quests.slice(15).forEach((quest, index) => { quest.excused = index > 2; });
+  assert.equal(isDayCleared(today, "normal"), true, "excused XP is removed from the new day's total");
+  today.quests[15].required = true;
+  assert.equal(isDayCleared(today, "normal"), false, "an unfinished compulsory quest still gates the day");
 });
 
 t("barLift reports what the screen needs and nothing it does not", () => {

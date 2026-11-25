@@ -83,8 +83,7 @@ export function levelFromTotalXp(totalXp) {
    D sits at 7 where it always did — the first promotion should be reachable,
    and everything after it should not.
 
-   The ranks only pace the climb. The difficulty is in the bar a day has to
-   clear, which rises with you — see earnedBar below. */
+   The ranks only pace the climb. */
 const RANK_TABLE = [
   { min: 26, rank: "S" },
   { min: 20, rank: "A" },
@@ -210,8 +209,13 @@ export function dayEarnedXp(day) {
 
 // The standard board clears at 80%. Required quests must still be completed.
 export const CLEAR_THRESHOLD = 0.8;
+export const FIXED_CLEAR_BAR_FROM = "2026-11-24";
 
 export function isDayCleared(day, mode) {
+  if (day.date >= FIXED_CLEAR_BAR_FROM) {
+    const { grade } = gradeDay(day, mode);
+    return grade === "clean" || grade === "held";
+  }
   const avail = dayAvailableXp(day);
   if (avail === 0) return false;
   if (day.quests.some((q) => q.required && !q.done && !q.excused)) return false;
@@ -271,9 +275,10 @@ export function gradeDay(day, mode) {
   const earned = day.quests.filter((q) => q.done && !q.excused).reduce((s, q) => s + q.xp, 0);
   const ratio = Math.min(1, earned / avail);
   const requiredMissed = day.quests.filter((q) => q.required && !q.done && !q.excused);
-  // A day carries the bar it was generated under, so raising the standard
-  // tomorrow can never retroactively fail a day already won.
-  const bar = typeof day.bar === "number" ? day.bar : difficultyOf(mode).clearBar;
+  // Older days keep the standard recorded when they were generated.
+  const bar = day.date >= FIXED_CLEAR_BAR_FROM
+    ? CLEAR_THRESHOLD
+    : (typeof day.bar === "number" ? day.bar : difficultyOf(mode).clearBar);
 
   // Clear the day and you owe nothing, however much of the board is left.
   // Below the bar, a total collapse still reads as a full shortfall of 1.
@@ -853,10 +858,8 @@ export function progressionFor(ex, training, endKey) {
 }
 
 /* ---------- difficulty ----------
-   Hard mode is not a cosmetic label. It raises the bar a day must clear, deepens
-   what a shortfall costs, and slows how fast clean days forgive past lapses.
-   Every existing caller that passes no mode gets exactly the old numbers, so a
-   save made on normal grades identically after this shipped.                   */
+   Difficulty sets the penalty and forgiveness rate. Its original clear bar
+   remains available for older days that were saved without a bar. */
 
 export const DIFFICULTY = {
   normal: {
@@ -867,12 +870,12 @@ export const DIFFICULTY = {
   hard: {
     key: "hard", label: "Hard", clearBar: 0.85, depth: 1.75,
     lapseBar: 0.98, forgiveEvery: 5,
-    blurb: "85% to clear, shortfalls cost 40% more, and it takes five clean days to forgive one lapse.",
+    blurb: "A day clears at 80% with required tasks complete. Shortfalls cost 40% more, and five clean days forgive one lapse.",
   },
   monarch: {
     key: "monarch", label: "Monarch", clearBar: 1, depth: 2.25,
     lapseBar: 1, forgiveEvery: 8,
-    blurb: "Everything, every day. Anything less is a lapse and it takes eight clean days to work one off.",
+    blurb: "A day clears at 80% with required tasks complete. Shortfalls cost 80% more, and eight clean days forgive one lapse.",
   },
 };
 
@@ -880,26 +883,20 @@ export function difficultyOf(mode) {
   return DIFFICULTY[mode] || DIFFICULTY.normal;
 }
 
-/* ---------- the rising bar ----------
-   A fixed standard stops being a standard once you can meet it without
-   trying. So the share of the board a day has to clear climbs: it holds for
-   the first week, then goes up a point for every week you actually clear.
-
-   Two things keep it honest. It only rises off weeks you EARNED — five days
-   cleared out of seven — so a bad week costs you the increase rather than
-   burying you. And the bar a day was graded under is stamped onto that day
-   when it is generated, so raising the standard tomorrow never retroactively
-   fails a day you already won.                                             */
+/* ---------- clear bar ----------
+   Before the fixed rule, each week with five cleared days raised the bar
+   by one point. Retain that calculation for backfilled dates before the change. */
 
 export const BAR_STEP = 0.01;
 export const BAR_MAX_LIFT = 0.2;
 export const BAR_WEEK_CLEARED = 5;
 
 /**
- * The bar this person has earned by the given date. Weeks are counted from
- * the day they started, and only completed ones count.
+ * The bar for a newly generated day. For historical backfills, count only
+ * completed weeks since the start date.
  */
 export function earnedBar(days = {}, dk, mode, createdAt) {
+  if (dk >= FIXED_CLEAR_BAR_FROM) return CLEAR_THRESHOLD;
   const base = difficultyOf(mode).clearBar;
   if (!createdAt || !dk || dk < createdAt) return base;
 
@@ -922,7 +919,7 @@ export function earnedBar(days = {}, dk, mode, createdAt) {
 
 /** How far the bar has climbed above the floor, for the screen to show. */
 export function barLift(days, dk, mode, createdAt) {
-  const base = difficultyOf(mode).clearBar;
+  const base = dk >= FIXED_CLEAR_BAR_FROM ? CLEAR_THRESHOLD : difficultyOf(mode).clearBar;
   const bar = earnedBar(days, dk, mode, createdAt);
   return { base, bar, lift: +(bar - base).toFixed(4), atCap: bar - base >= BAR_MAX_LIFT - 1e-9 };
 }
@@ -1239,7 +1236,7 @@ export function pendingAlerts(state, todayKey, nowMins = 0) {
   if (today && today.generated) {
     const left = today.quests.filter((q) => !q.done && !q.excused);
     const g = gradeDay(today, mode);
-    const bar = difficultyOf(mode).clearBar;
+    const bar = g.bar;
     if (left.length && nowMins >= 20 * 60 && g.ratio < bar) {
       out.push({
         id: "today-late", level: "urgent", title: `${left.length} quest${left.length === 1 ? "" : "s"} still open`,
